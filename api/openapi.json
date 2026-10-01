@@ -3,7 +3,7 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "JBC-001 draft contract; no business endpoints are implemented yet. Sports training scheduling and registration. Creation responses include UUID IDs. Input timestamps need explicit offsets; output timestamps use UTC Z. No authentication in scope. Essential decisions are versioned here because the owner requested ignored Markdown documentation."
+    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; session and registration routes remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
   },
   "servers": [
     {
@@ -62,6 +62,24 @@
                     "value": {
                       "code": "INVALID_REQUEST",
                       "message": "Request contains malformed or invalid fields."
+                    }
+                  },
+                  "invalidFields": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains invalid fields.",
+                      "fieldErrors": [
+                        {
+                          "field": "email",
+                          "message": "must be a valid email"
+                        }
+                      ]
+                    }
+                  },
+                  "malformedJson": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request body must contain valid JSON."
                     }
                   }
                 }
@@ -139,6 +157,24 @@
                     "value": {
                       "code": "INVALID_REQUEST",
                       "message": "Request contains malformed or invalid fields."
+                    }
+                  },
+                  "invalidFields": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains invalid fields.",
+                      "fieldErrors": [
+                        {
+                          "field": "email",
+                          "message": "must be a valid email"
+                        }
+                      ]
+                    }
+                  },
+                  "malformedJson": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request body must contain valid JSON."
                     }
                   }
                 }
