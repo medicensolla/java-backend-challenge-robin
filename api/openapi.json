@@ -1243,11 +1243,13 @@
       "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
     },
     "optionalNotSelected": {
-      "JBC-014": "GitHub Actions",
       "JBC-015": "Pagination",
       "JBC-016": "RFC 9457 errors",
       "JBC-017": "Concurrent registration capacity guarantee",
       "JBC-018": "10x/100x scaling notes"
+    },
+    "optionalSelected": {
+      "JBC-014": "Maven CI checks implemented early inside JBC-006; remote execution awaits owner push"
     }
   },
   "x-decisions": {
@@ -1272,6 +1274,7 @@
       "coach/participant update and delete endpoints"
     ],
     "testing": "Prioritize business logic and HTTP integration tests backed by PostgreSQL. No dedicated Flyway or migration-only tests, per owner scope adjustment in JBC-004. Flyway continues to apply and validate migrations on normal application startup.",
-    "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume."
+    "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume.",
+    "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it."
   }
 }
