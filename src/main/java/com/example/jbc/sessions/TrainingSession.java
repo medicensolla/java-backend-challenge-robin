@@ -13,7 +13,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "sessions")
 public class TrainingSession {
@@ -38,38 +43,11 @@ public class TrainingSession {
     @Column(nullable = false)
     private String location;
 
-    protected TrainingSession() {
-    }
-
     public TrainingSession(Coach coach, Instant startTime, Instant endTime, int capacity, String location) {
         this.coach = coach;
         this.startTime = startTime;
         this.endTime = endTime;
         this.capacity = capacity;
         this.location = location;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public Coach getCoach() {
-        return coach;
-    }
-
-    public Instant getStartTime() {
-        return startTime;
-    }
-
-    public Instant getEndTime() {
-        return endTime;
-    }
-
-    public int getCapacity() {
-        return capacity;
-    }
-
-    public String getLocation() {
-        return location;
     }
 }

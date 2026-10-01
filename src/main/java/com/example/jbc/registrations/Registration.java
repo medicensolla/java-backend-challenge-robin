@@ -12,7 +12,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "registrations")
 public class Registration {
@@ -29,23 +34,8 @@ public class Registration {
     @JoinColumn(name = "participant_id", nullable = false)
     private Participant participant;
 
-    protected Registration() {
-    }
-
     public Registration(TrainingSession session, Participant participant) {
         this.session = session;
         this.participant = participant;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public TrainingSession getSession() {
-        return session;
-    }
-
-    public Participant getParticipant() {
-        return participant;
     }
 }
