@@ -30,3 +30,12 @@ server:
     include-message: never
     include-binding-errors: never
     include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

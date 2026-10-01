@@ -1202,7 +1202,7 @@
       "JBC-009": "Registration rules and business unit tests",
       "JBC-010": "Listing, cancellation and deletion lifecycle",
       "JBC-011": "Full HTTP end-to-end test using PostgreSQL Testcontainers; mvnw verify executes integration tests",
-      "JBC-012": "Compatible coach name expansion in new migration plus short ADR, upgrade and mixed-version tests",
+      "JBC-012": "Compatible coach name expansion in a new migration plus short ADR; preserve current API behavior",
       "JBC-013": "Working OpenAPI/Swagger or Postman, reviewer README, assumptions, limitations and truthful AI disclosure",
       "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
     },
@@ -1234,6 +1234,8 @@
       "payments",
       "recurring sessions",
       "coach/participant update and delete endpoints"
-    ]
+    ],
+    "testing": "Prioritize business logic and HTTP integration tests backed by PostgreSQL. No dedicated Flyway or migration-only tests, per owner scope adjustment in JBC-004. Flyway continues to apply and validate migrations on normal application startup.",
+    "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume."
   }
 }

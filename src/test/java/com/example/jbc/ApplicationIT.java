@@ -2,7 +2,6 @@ package com.example.jbc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManagerFactory;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,9 +32,6 @@ class ApplicationIT {
     @Autowired
     private EntityManagerFactory entityManagerFactory;
 
-    @Autowired
-    private Flyway flyway;
-
     @Test
     void startsHttpAndPersistenceAgainstPostgresql() {
         var response = http.getForEntity("/v3/api-docs", JsonNode.class);
@@ -43,11 +39,14 @@ class ApplicationIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("openapi").asText()).startsWith("3.");
+        var health = http.getForEntity("/actuator/health", JsonNode.class);
+        assertThat(health.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(health.getBody()).isNotNull();
+        assertThat(health.getBody().path("status").asText()).isEqualTo("UP");
         assertThat(jdbc.queryForObject("select current_database()", String.class))
                 .isEqualTo(postgres.getDatabaseName());
         assertThat(jdbc.queryForObject("select current_setting('TimeZone')", String.class))
                 .isEqualTo("UTC");
         assertThat(entityManagerFactory.isOpen()).isTrue();
-        flyway.validate();
     }
 }

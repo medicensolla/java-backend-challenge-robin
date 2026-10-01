@@ -1,0 +1,41 @@
+# Defaults are for isolated local development only.
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:${PORT:-8080}:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-jbc}
+      DB_USERNAME: ${DB_USERNAME:-jbc_local}
+      DB_PASSWORD: ${DB_PASSWORD:-local_development_only}
+      PORT: 8080
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    stop_grace_period: 30s
+
+  db:
+    image: postgres:17.9-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jbc}
+      POSTGRES_USER: ${DB_USERNAME:-jbc_local}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-local_development_only}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
