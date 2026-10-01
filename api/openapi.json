@@ -1,0 +1,1239 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Java Backend Challenge API",
+    "version": "0.1.0",
+    "description": "JBC-001 draft contract; no endpoints are implemented yet. Sports training scheduling and registration. Creation responses include UUID IDs. Input timestamps need explicit offsets; output timestamps use UTC Z. No authentication in scope. Essential decisions are versioned here because the owner requested ignored Markdown documentation."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Planned local service (available after application bootstrap)."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Coaches"
+    },
+    {
+      "name": "Participants"
+    },
+    {
+      "name": "Sessions"
+    },
+    {
+      "name": "Registrations"
+    }
+  ],
+  "paths": {
+    "/api/coaches": {
+      "post": {
+        "operationId": "createCoach",
+        "summary": "Create a coach",
+        "tags": [
+          "Coaches"
+        ],
+        "description": "Name and email must be nonblank; email must be valid. Emails are not unique identities. Public name remains compatible after schema evolution.",
+        "responses": {
+          "201": {
+            "description": "Resource created; body includes its ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Coach"
+                },
+                "example": {
+                  "id": "11111111-1111-4111-8111-111111111111",
+                  "name": "Alex Rivera",
+                  "email": "alex@example.com"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCoach"
+              },
+              "example": {
+                "name": "Alex Rivera",
+                "email": "alex@example.com"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/participants": {
+      "post": {
+        "operationId": "createParticipant",
+        "summary": "Create a participant",
+        "tags": [
+          "Participants"
+        ],
+        "description": "IDs identify participants; the same email may occur on multiple records.",
+        "responses": {
+          "201": {
+            "description": "Resource created; body includes its ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Participant"
+                },
+                "example": {
+                  "id": "22222222-2222-4222-8222-222222222222",
+                  "name": "Sam Lee",
+                  "email": "sam@example.com"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateParticipant"
+              },
+              "example": {
+                "name": "Sam Lee",
+                "email": "sam@example.com"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions": {
+      "post": {
+        "operationId": "createSession",
+        "summary": "Create a session",
+        "tags": [
+          "Sessions"
+        ],
+        "description": "Validate input, then coach existence, then overlap. For the same coach, overlap is existing.start < proposed.end AND proposed.start < existing.end. Adjacent intervals are allowed; different coaches may share an interval. Serialize check/insert by locking the coach row.",
+        "responses": {
+          "201": {
+            "description": "Resource created; body includes its ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                },
+                "example": {
+                  "id": "33333333-3333-4333-8333-333333333333",
+                  "coachId": "11111111-1111-4111-8111-111111111111",
+                  "startTime": "2026-10-05T14:00:00Z",
+                  "endTime": "2026-10-05T15:00:00Z",
+                  "capacity": 10,
+                  "location": "Court A"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "COACH_NOT_FOUND": {
+                    "value": {
+                      "code": "COACH_NOT_FOUND",
+                      "message": "Coach was not found."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "COACH_OVERLAP": {
+                    "value": {
+                      "code": "COACH_OVERLAP",
+                      "message": "Coach already has a session overlapping this interval."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSession"
+              },
+              "example": {
+                "coachId": "11111111-1111-4111-8111-111111111111",
+                "startTime": "2026-10-05T10:00:00-04:00",
+                "endTime": "2026-10-05T11:00:00-04:00",
+                "capacity": 10,
+                "location": "Court A"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listSessions",
+        "summary": "List and filter sessions",
+        "tags": [
+          "Sessions"
+        ],
+        "description": "Optional filters combine with AND. Select interval intersections: endTime > from and startTime < to for supplied bounds. Reject from >= to. Order by startTime then id. No matches, including an unknown coach filter, returns []. No pagination in the baseline.",
+        "responses": {
+          "200": {
+            "description": "Successful query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Session"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "33333333-3333-4333-8333-333333333333",
+                    "coachId": "11111111-1111-4111-8111-111111111111",
+                    "startTime": "2026-10-05T14:00:00Z",
+                    "endTime": "2026-10-05T15:00:00Z",
+                    "capacity": 10,
+                    "location": "Court A"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "coachId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Exact coach ID."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+              "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            },
+            "description": "Exclusive test against session end; offset required."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+              "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            },
+            "description": "Exclusive upper bound against session start; offset required."
+          }
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}": {
+      "parameters": [
+        {
+          "name": "sessionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "deleteSession",
+        "summary": "Delete an empty session",
+        "tags": [
+          "Sessions"
+        ],
+        "description": "Check session existence first. Block while any registrations exist; restrictive foreign keys protect against concurrent relationship changes. After cancellation of all registrations, deletion succeeds. Repeated deletion returns 404.",
+        "responses": {
+          "204": {
+            "description": "Deleted; no response body."
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "SESSION_NOT_FOUND": {
+                    "value": {
+                      "code": "SESSION_NOT_FOUND",
+                      "message": "Session was not found."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "SESSION_HAS_REGISTRATIONS": {
+                    "value": {
+                      "code": "SESSION_HAS_REGISTRATIONS",
+                      "message": "Cancel all registrations before deleting this session."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/registrations": {
+      "parameters": [
+        {
+          "name": "sessionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "createRegistration",
+        "summary": "Register a participant",
+        "tags": [
+          "Registrations"
+        ],
+        "description": "Check in order: input validation, session existence, participant existence, duplicate, capacity. Duplicate takes precedence over full. The last available slot succeeds. A database unique constraint protects participant/session pairs; translate its violation to DUPLICATE_REGISTRATION. Transactional baseline capacity checking does not guarantee capacity under concurrent requests; optional JBC-017 adds that guarantee.",
+        "responses": {
+          "201": {
+            "description": "Resource created; body includes its ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registration"
+                },
+                "example": {
+                  "id": "44444444-4444-4444-8444-444444444444",
+                  "sessionId": "33333333-3333-4333-8333-333333333333",
+                  "participantId": "22222222-2222-4222-8222-222222222222"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "SESSION_NOT_FOUND": {
+                    "value": {
+                      "code": "SESSION_NOT_FOUND",
+                      "message": "Session was not found."
+                    }
+                  },
+                  "PARTICIPANT_NOT_FOUND": {
+                    "value": {
+                      "code": "PARTICIPANT_NOT_FOUND",
+                      "message": "Participant was not found."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "DUPLICATE_REGISTRATION": {
+                    "value": {
+                      "code": "DUPLICATE_REGISTRATION",
+                      "message": "Participant is already registered for this session."
+                    }
+                  },
+                  "SESSION_FULL": {
+                    "value": {
+                      "code": "SESSION_FULL",
+                      "message": "Session has reached its capacity."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRegistration"
+              },
+              "example": {
+                "participantId": "22222222-2222-4222-8222-222222222222"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/participants": {
+      "parameters": [
+        {
+          "name": "sessionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listSessionParticipants",
+        "summary": "List registered participants",
+        "tags": [
+          "Registrations"
+        ],
+        "description": "Include participant id and registrationId for discoverable cancellation. Order by participant id. An existing empty session returns []; a missing session returns 404.",
+        "responses": {
+          "200": {
+            "description": "Successful query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegisteredParticipant"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "22222222-2222-4222-8222-222222222222",
+                    "name": "Sam Lee",
+                    "email": "sam@example.com",
+                    "registrationId": "44444444-4444-4444-8444-444444444444"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "SESSION_NOT_FOUND": {
+                    "value": {
+                      "code": "SESSION_NOT_FOUND",
+                      "message": "Session was not found."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/registrations/{registrationId}": {
+      "parameters": [
+        {
+          "name": "sessionId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "registrationId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "cancelRegistration",
+        "summary": "Cancel a registration",
+        "tags": [
+          "Registrations"
+        ],
+        "description": "Check session existence, then registration membership. Missing registration or one belonging to another session returns 404. Delete the relationship, freeing capacity; registering again creates a new ID. Repeated cancellation returns 404.",
+        "responses": {
+          "204": {
+            "description": "Deleted; no response body."
+          },
+          "400": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INVALID_REQUEST": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request contains malformed or invalid fields."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "SESSION_NOT_FOUND": {
+                    "value": {
+                      "code": "SESSION_NOT_FOUND",
+                      "message": "Session was not found."
+                    }
+                  },
+                  "REGISTRATION_NOT_FOUND": {
+                    "value": {
+                      "code": "REGISTRATION_NOT_FOUND",
+                      "message": "Registration was not found under this session."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "See error codes and examples.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "code": "INTERNAL_ERROR",
+                      "message": "An unexpected error occurred."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateCoach": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "Coach": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "CreateParticipant": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "Participant": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "CreateSession": {
+        "type": "object",
+        "required": [
+          "coachId",
+          "startTime",
+          "endTime",
+          "capacity",
+          "location"
+        ],
+        "properties": {
+          "coachId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          }
+        },
+        "description": "startTime must be strictly before endTime. Past sessions are allowed. Half-open interval [startTime,endTime)."
+      },
+      "CreateRegistration": {
+        "type": "object",
+        "required": [
+          "participantId"
+        ],
+        "properties": {
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Registration": {
+        "type": "object",
+        "required": [
+          "id",
+          "sessionId",
+          "participantId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participantId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "RegisteredParticipant": {
+        "type": "object",
+        "required": [
+          "id",
+          "registrationId",
+          "name",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "INVALID_REQUEST",
+              "COACH_NOT_FOUND",
+              "PARTICIPANT_NOT_FOUND",
+              "SESSION_NOT_FOUND",
+              "REGISTRATION_NOT_FOUND",
+              "COACH_OVERLAP",
+              "DUPLICATE_REGISTRATION",
+              "SESSION_FULL",
+              "SESSION_HAS_REGISTRATIONS",
+              "INTERNAL_ERROR"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "fieldErrors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "id",
+          "coachId",
+          "startTime",
+          "endTime",
+          "capacity",
+          "location"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "coachId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
+            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+          },
+          "capacity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Must contain a non-whitespace character."
+          }
+        }
+      }
+    }
+  },
+  "x-requirements": [
+    {
+      "requirement": "Create coaches",
+      "endpoint": "POST /api/coaches",
+      "tickets": [
+        "JBC-006"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "Create participants",
+      "endpoint": "POST /api/participants",
+      "tickets": [
+        "JBC-006"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "Create sessions and prevent coach overlap",
+      "endpoint": "POST /api/sessions",
+      "tickets": [
+        "JBC-007"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "List sessions by coach and interval",
+      "endpoint": "GET /api/sessions",
+      "tickets": [
+        "JBC-008"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "Delete sessions safely",
+      "endpoint": "DELETE /api/sessions/{sessionId}",
+      "tickets": [
+        "JBC-010"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "Register participants with capacity and uniqueness checks",
+      "endpoint": "POST /api/sessions/{sessionId}/registrations",
+      "tickets": [
+        "JBC-009"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "List registered participants",
+      "endpoint": "GET /api/sessions/{sessionId}/participants",
+      "tickets": [
+        "JBC-010"
+      ],
+      "priority": "required"
+    },
+    {
+      "requirement": "Cancel registrations",
+      "endpoint": "DELETE /api/sessions/{sessionId}/registrations/{registrationId}",
+      "tickets": [
+        "JBC-010"
+      ],
+      "priority": "required"
+    }
+  ],
+  "x-delivery": {
+    "required": {
+      "JBC-001": "Requirements, decisions, draft contract",
+      "JBC-002": "Java 21, Spring Boot 3, Maven Wrapper and test lifecycle; select compatible concrete versions",
+      "JBC-003": "Flyway V1 coaches with original name; immutable once later versions exist",
+      "JBC-004": "Root docker compose up --build starts application and PostgreSQL",
+      "JBC-005": "V2 schema, UUID keys, restrictive foreign keys, unique registration pair, positive capacity and valid intervals",
+      "JBC-006": "Coach/participant creation and baseline errors",
+      "JBC-007": "Session creation, UTC, business unit tests, PostgreSQL overlap concurrency test",
+      "JBC-008": "Session filtering and boundary tests",
+      "JBC-009": "Registration rules and business unit tests",
+      "JBC-010": "Listing, cancellation and deletion lifecycle",
+      "JBC-011": "Full HTTP end-to-end test using PostgreSQL Testcontainers; mvnw verify executes integration tests",
+      "JBC-012": "Compatible coach name expansion in new migration plus short ADR, upgrade and mixed-version tests",
+      "JBC-013": "Working OpenAPI/Swagger or Postman, reviewer README, assumptions, limitations and truthful AI disclosure",
+      "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
+    },
+    "optionalNotSelected": {
+      "JBC-014": "GitHub Actions",
+      "JBC-015": "Pagination",
+      "JBC-016": "RFC 9457 errors",
+      "JBC-017": "Concurrent registration capacity guarantee",
+      "JBC-018": "10x/100x scaling notes"
+    }
+  },
+  "x-decisions": {
+    "architecture": "One application and one database; feature-oriented packages, controllers, application services, repositories, entities and DTOs. Do not expose JPA entities. Avoid unnecessary abstraction.",
+    "stack": "Java 21, Spring Boot 3, Maven Wrapper, Spring Web, Bean Validation, Spring Data JPA, PostgreSQL, Flyway, JUnit, Testcontainers and springdoc. Pin compatible versions in JBC-002.",
+    "schemaOwnership": "Flyway owns the schema; Hibernate ddl-auto=validate, never update. Released migrations remain unchanged.",
+    "time": "Persist timestamptz; compare Java Instant values in UTC; configure UTC. Explicit offsets required, normalize output to Z. Original input timezone is not retained.",
+    "identity": "UUID IDs, including registration IDs. Emails are not unique.",
+    "validation": "Nonblank names, location and valid nonblank emails, capacity > 0, startTime < endTime; past sessions allowed. Invalid UUIDs and offset-free timestamps return 400.",
+    "publicCoachName": "Keep the name API field through internal first_name/last_name expansion.",
+    "nameSplit": "Trim/collapse whitespace, first token -> first_name, remainder -> last_name; a single token has empty last_name. Culturally imperfect, documented policy.",
+    "migrationCompatibility": "Retain legacy name, backfill split columns and synchronize legacy/new writes at database level. Define deterministic inconsistent-write policy in JBC-012. Defer destructive contraction until old instances and rollback dependency retire.",
+    "errors": "Stable code and readable message; optional fieldErrors; never disclose stack traces. Generic 500 for unexpected errors.",
+    "documentation": "All Markdown including working notes lives in ignored docs/. Reviewer-required README and migration ADR availability must be resolved before submission; do not silently override the owner preference.",
+    "git": "Branch exactly ticket ID; Conventional Commits include ticket ID. Commit locally only; owner performs push. No PR creation or remote operations in JBC-001.",
+    "outOfScope": [
+      "authentication",
+      "frontend",
+      "notifications",
+      "payments",
+      "recurring sessions",
+      "coach/participant update and delete endpoints"
+    ]
+  }
+}
