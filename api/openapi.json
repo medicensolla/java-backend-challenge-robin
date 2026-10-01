@@ -3,12 +3,12 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "JBC-001 draft contract; no endpoints are implemented yet. Sports training scheduling and registration. Creation responses include UUID IDs. Input timestamps need explicit offsets; output timestamps use UTC Z. No authentication in scope. Essential decisions are versioned here because the owner requested ignored Markdown documentation."
+    "description": "JBC-001 draft contract; no business endpoints are implemented yet. Sports training scheduling and registration. Creation responses include UUID IDs. Input timestamps need explicit offsets; output timestamps use UTC Z. No authentication in scope. Essential decisions are versioned here because the owner requested ignored Markdown documentation."
   },
   "servers": [
     {
       "url": "http://localhost:8080",
-      "description": "Planned local service (available after application bootstrap)."
+      "description": "Local service after database configuration; business endpoints arrive in subsequent tickets."
     }
   ],
   "tags": [
@@ -1216,7 +1216,7 @@
   },
   "x-decisions": {
     "architecture": "One application and one database; feature-oriented packages, controllers, application services, repositories, entities and DTOs. Do not expose JPA entities. Avoid unnecessary abstraction.",
-    "stack": "Java 21, Spring Boot 3, Maven Wrapper, Spring Web, Bean Validation, Spring Data JPA, PostgreSQL, Flyway, JUnit, Testcontainers and springdoc. Pin compatible versions in JBC-002.",
+    "stack": "Java 21, Spring Boot 3.5.16, Maven 3.9.16 with Wrapper 3.3.4, Spring Web, Bean Validation, Spring Data JPA, PostgreSQL, Flyway, JUnit, Testcontainers and springdoc 2.9.1. Other dependency and plugin versions are managed by the Boot parent.",
     "schemaOwnership": "Flyway owns the schema; Hibernate ddl-auto=validate, never update. Released migrations remain unchanged.",
     "time": "Persist timestamptz; compare Java Instant values in UTC; configure UTC. Explicit offsets required, normalize output to Z. Original input timezone is not retained.",
     "identity": "UUID IDs, including registration IDs. Emails are not unique.",
