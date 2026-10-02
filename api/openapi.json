@@ -3,7 +3,7 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. Session deletion and registration routes remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
+    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. JBC-009 implements registration creation with duplicate and capacity checks. Session deletion, participant listing and registration cancellation remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
   },
   "servers": [
     {
@@ -580,7 +580,7 @@
         "tags": [
           "Registrations"
         ],
-        "description": "Check in order: input validation, session existence, participant existence, duplicate, capacity. Duplicate takes precedence over full. The last available slot succeeds. A database unique constraint protects participant/session pairs; translate its violation to DUPLICATE_REGISTRATION. Transactional baseline capacity checking does not guarantee capacity under concurrent requests; optional JBC-017 adds that guarantee.",
+        "description": "Validate input, then check session existence, participant existence, duplicate and capacity in one transaction. Duplicate takes precedence over full. The last available slot succeeds. Flush the insert before returning the generated registration ID; translate only a violation of uq_registrations_session_participant to DUPLICATE_REGISTRATION. Other unexpected persistence failures remain sanitized INTERNAL_ERROR responses. Transactional baseline capacity checking does not guarantee capacity under concurrent requests; optional JBC-017 adds that guarantee.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -605,10 +605,28 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "INVALID_REQUEST": {
+                  "missingParticipant": {
                     "value": {
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains malformed or invalid fields."
+                      "message": "Request contains invalid fields.",
+                      "fieldErrors": [
+                        {
+                          "field": "participantId",
+                          "message": "must not be null"
+                        }
+                      ]
+                    }
+                  },
+                  "malformedJsonOrParticipantUuid": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request body must contain valid JSON."
+                    }
+                  },
+                  "invalidSessionUuid": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Bad Request"
                     }
                   }
                 }
@@ -1301,6 +1319,7 @@
     "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume.",
     "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it.",
     "schedulingConcurrency": "Within one transaction, lock the coach row with PESSIMISTIC_WRITE before checking existing.start < proposed.end AND existing.end > proposed.start and inserting the session. The lock also covers empty schedules and is held through commit. Every session creation uses this path; direct database writes bypass this application guarantee. Different coaches lock different rows.",
-    "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; unpaginated array. One read-only database query fetches sessions and coaches; no resource-existence lookup is needed."
+    "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; unpaginated array. One read-only database query fetches sessions and coaches; no resource-existence lookup is needed.",
+    "registrationCreation": "One transaction checks session, participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The existing V2 unique constraint prevents duplicate pairs, while baseline count/check/insert does not prevent concurrent capacity overflow. Concurrent capacity protection remains optional JBC-017; no new locks or migration in JBC-009."
   }
 }
