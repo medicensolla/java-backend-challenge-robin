@@ -21,6 +21,8 @@ spring:
     clean-disabled: true
   jackson:
     time-zone: UTC
+    deserialization:
+      accept-float-as-int: false
     serialization:
       write-dates-as-timestamps: false
 

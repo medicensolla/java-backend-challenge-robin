@@ -3,12 +3,12 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; session and registration routes remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
+    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling. Session listing/deletion and registration routes remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
   },
   "servers": [
     {
       "url": "http://localhost:8080",
-      "description": "Local service after database configuration; business endpoints arrive in subsequent tickets."
+      "description": "Local service; runtime Swagger documents implemented endpoints."
     }
   ],
   "tags": [
@@ -223,7 +223,7 @@
         "tags": [
           "Sessions"
         ],
-        "description": "Validate input, then coach existence, then overlap. For the same coach, overlap is existing.start < proposed.end AND proposed.start < existing.end. Adjacent intervals are allowed; different coaches may share an interval. Serialize check/insert by locking the coach row.",
+        "description": "Validate input, then coach existence, then overlap. Normalize timestamps to microsecond precision before comparing or storing. For the same coach, overlap is existing.start < proposed.end AND proposed.start < existing.end. Adjacent intervals are allowed; different coaches may share an interval. Serialize check/insert in one transaction by locking the coach row through commit, including an initially empty schedule.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -251,10 +251,28 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "INVALID_REQUEST": {
+                  "invalidFields": {
                     "value": {
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains malformed or invalid fields."
+                      "message": "Request contains invalid fields.",
+                      "fieldErrors": [
+                        {
+                          "field": "capacity",
+                          "message": "must be greater than zero"
+                        }
+                      ]
+                    }
+                  },
+                  "invalidWindow": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "startTime must be before endTime at microsecond precision."
+                    }
+                  },
+                  "malformedJsonOrTimestamp": {
+                    "value": {
+                      "code": "INVALID_REQUEST",
+                      "message": "Request body must contain valid JSON."
                     }
                   }
                 }
@@ -981,13 +999,13 @@
             "type": "string",
             "format": "date-time",
             "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
-            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            "description": "ISO-8601 string with explicit offset. Normalize to microsecond precision by truncation. Responses use UTC Z; numeric timestamps are rejected."
           },
           "endTime": {
             "type": "string",
             "format": "date-time",
             "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
-            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            "description": "ISO-8601 string with explicit offset. Normalize to microsecond precision by truncation. Responses use UTC Z; numeric timestamps are rejected."
           },
           "capacity": {
             "type": "integer",
@@ -1001,7 +1019,7 @@
             "description": "Must contain a non-whitespace character."
           }
         },
-        "description": "startTime must be strictly before endTime. Past sessions are allowed. Half-open interval [startTime,endTime)."
+        "description": "startTime must be strictly before endTime after truncation to microsecond precision. Past sessions are allowed. Half-open interval [startTime,endTime). Capacity must be a positive integer; fractional values return 400."
       },
       "CreateRegistration": {
         "type": "object",
@@ -1136,13 +1154,13 @@
             "type": "string",
             "format": "date-time",
             "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
-            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            "description": "ISO-8601 string normalized to UTC Z at microsecond precision."
           },
           "endTime": {
             "type": "string",
             "format": "date-time",
             "pattern": "T.*(?:Z|[+-]\\d{2}:\\d{2})$",
-            "description": "ISO-8601 with explicit offset. Responses are normalized to UTC Z."
+            "description": "ISO-8601 string normalized to UTC Z at microsecond precision."
           },
           "capacity": {
             "type": "integer",
@@ -1249,14 +1267,14 @@
       "JBC-018": "10x/100x scaling notes"
     },
     "optionalSelected": {
-      "JBC-014": "Maven CI checks implemented early inside JBC-006; remote execution awaits owner push"
+      "JBC-014": "Maven CI checks included early in JBC-006; runs on PRs to main and main pushes. Merge enforcement is configured separately in GitHub."
     }
   },
   "x-decisions": {
     "architecture": "One application and one database; feature-oriented packages, controllers, application services, repositories, entities and DTOs. Do not expose JPA entities. Avoid unnecessary abstraction.",
     "stack": "Java 21, Spring Boot 3.5.16, Maven 3.9.16 with Wrapper 3.3.4, Spring Web, Bean Validation, Spring Data JPA, PostgreSQL, Flyway, JUnit, Testcontainers and springdoc 2.9.1. Other dependency and plugin versions are managed by the Boot parent.",
     "schemaOwnership": "Flyway owns the schema; Hibernate ddl-auto=validate, never update. Released migrations remain unchanged.",
-    "time": "Persist timestamptz; compare Java Instant values in UTC; configure UTC. Explicit offsets required, normalize output to Z. Original input timezone is not retained.",
+    "time": "Persist timestamptz; compare Java Instant values in UTC; configure UTC. Input timestamps must be ISO-8601 strings with explicit offsets; reject numeric timestamps. Truncate to microsecond precision before window validation, overlap checks and persistence; responses use the same precision in UTC Z. Original input timezone is not retained.",
     "identity": "UUID IDs, including registration IDs. Emails are not unique.",
     "validation": "Nonblank names, location and valid nonblank emails, capacity > 0, startTime < endTime; past sessions allowed. Invalid UUIDs and offset-free timestamps return 400.",
     "publicCoachName": "Keep the name API field through internal first_name/last_name expansion.",
@@ -1275,6 +1293,7 @@
     ],
     "testing": "Prioritize business logic and HTTP integration tests backed by PostgreSQL. No dedicated Flyway or migration-only tests, per owner scope adjustment in JBC-004. Flyway continues to apply and validate migrations on normal application startup.",
     "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume.",
-    "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it."
+    "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it.",
+    "schedulingConcurrency": "Within one transaction, lock the coach row with PESSIMISTIC_WRITE before checking existing.start < proposed.end AND existing.end > proposed.start and inserting the session. The lock also covers empty schedules and is held through commit. Every session creation uses this path; direct database writes bypass this application guarantee. Different coaches lock different rows."
   }
 }

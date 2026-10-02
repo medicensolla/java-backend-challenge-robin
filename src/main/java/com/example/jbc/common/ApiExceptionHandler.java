@@ -53,6 +53,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return super.handleExceptionInternal(exception, body, headers, status, request);
     }
 
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ApiError> handleApiException(ApiException exception) {
+        return ResponseEntity.status(exception.getStatus())
+                .body(new ApiError(exception.getCode(), exception.getMessage(), List.of()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpectedException(Exception exception) {
         log.error("Unhandled request failure", exception);
