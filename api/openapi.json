@@ -1643,7 +1643,7 @@
       "JBC-011": "Full HTTP end-to-end test using PostgreSQL Testcontainers; mvnw verify executes integration tests",
       "JBC-012": "Compatible coach name expansion in a new migration plus short ADR; preserve current API behavior",
       "JBC-013": "Working OpenAPI/Swagger or Postman, reviewer README, assumptions, limitations and truthful AI disclosure",
-      "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
+      "JBC-019": "Verified locally on 2026-10-02 against 6599b7cc8d374c18c966240797b8f2319bf8a676: 210 tests passed, clean Compose startup, persisted data after container recreation, unchanged V1–V3 and consistent HTTP/OpenAPI contracts. Evidence: documentation/FINAL-VERIFICATION.md. External submission and CI remote status not verified."
     },
     "optionalNotSelected": {
       "JBC-018": "10x/100x scaling notes"

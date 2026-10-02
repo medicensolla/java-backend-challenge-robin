@@ -21,7 +21,8 @@ Expected: `200` with `{"status":"UP"}`. The application waits for PostgreSQL, ap
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html): interactive requests and DTO examples.
 - [Generated OpenAPI](http://localhost:8080/v3/api-docs): documentation generated from the running application.
 - [Versioned OpenAPI contract](api/openapi.json): examples, error codes and project decisions.
-- [Coach-name migration ADR](documentation/ADR-001-coach-name-expansion.md): version compatibility, migration safety and rollback.
+- [Final verification report](docs/FINAL-VERIFICATION.md): clean-clone tests, Compose startup, persistence and immutable migrations.
+- [Coach-name migration ADR](docs/ADR-001-coach-name-expansion.md): version compatibility, migration safety and rollback.
 
 Compose binds the application to `127.0.0.1`. PostgreSQL is reachable inside the Compose network and **does not expose a host database port**. If 8080 is occupied, use `PORT=18080 docker compose up --build` and substitute that port in the URLs.
 
@@ -290,7 +291,7 @@ Registration creation holds a pessimistic write lock on the session row until it
 
 Capacity protection applies to this application registration flow, not direct SQL writes. Cancellation remains independent: a concurrent cancellation may free a slot after a `SESSION_FULL` response. No capacity-update endpoint is provided.
 
-Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
+Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Local clean-clone and restart verification passed; see the [final verification report](docs/FINAL-VERIFICATION.md) for evidence and delivery limits.
 
 ## AI assistance and ownership
 
