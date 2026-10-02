@@ -109,6 +109,18 @@ class SessionServiceTest {
         verify(sessions, never()).save(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-10-05T13:00:00Z", "2026-10-05T14:00:00Z", "2026-10-05T14:00:00.000000999Z"})
+    void rejectsInvalidFilterRangesBeforeQueryingSessions(String to) {
+        assertThatThrownBy(() -> service.list(null, START, Instant.parse(to)))
+                .isInstanceOfSatisfying(ApiException.class, exception -> {
+                    assertThat(exception.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(exception.getCode()).isEqualTo("INVALID_REQUEST");
+                    assertThat(exception.getMessage()).isEqualTo("from must be before to at microsecond precision.");
+                });
+        verifyNoInteractions(coaches, sessions);
+    }
+
     private static CreateSessionRequest request(Instant start, Instant end) {
         return new CreateSessionRequest(COACH_ID, start, end, 10, "Court A");
     }
