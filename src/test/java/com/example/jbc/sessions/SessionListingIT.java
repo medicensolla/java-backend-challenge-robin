@@ -105,7 +105,7 @@ class SessionListingIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
-        assertThat(response.getBody().path("message").asText()).isNotBlank();
+        assertThat(response.getBody().path("detail").asText()).isNotBlank();
         assertThat(response.getBody().has("trace")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM sessions", Long.class)).isEqualTo(6);
     }

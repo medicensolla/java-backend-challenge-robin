@@ -3,7 +3,7 @@ package com.example.jbc.sessions;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import com.example.jbc.common.ApiError;
+import com.example.jbc.common.ApiProblemSchema;
 import com.example.jbc.common.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,13 +42,13 @@ public class SessionController {
             description = "Validate input, then coach existence, then overlap. Adjacent sessions and shared times for different coaches are allowed. Creation is serialized per coach.")
     @ApiResponse(responseCode = "201", description = "Session created")
     @ApiResponse(responseCode = "400", description = "Invalid request or time window",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "404", description = "Coach was not found",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "409", description = "Coach has an overlapping session",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public SessionResponse create(@Valid @RequestBody CreateSessionRequest request) {
         return service.create(request);
     }
@@ -60,13 +60,13 @@ public class SessionController {
                     + "The database foreign key also blocks deletion if a registration appears after the check.")
     @ApiResponse(responseCode = "204", description = "Session deleted", content = @Content)
     @ApiResponse(responseCode = "400", description = "Invalid session UUID",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "404", description = "Session was not found",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "409", description = "Session has registrations",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public void delete(@PathVariable UUID sessionId) {
         service.delete(sessionId);
     }
@@ -77,9 +77,9 @@ public class SessionController {
                     + "Either bound may be omitted. Order by startTime then ID. Returns a page with totals; no matches return empty content.")
     @ApiResponse(responseCode = "200", description = "Matching sessions")
     @ApiResponse(responseCode = "400", description = "Invalid filter, time interval or pagination",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public PageResponse<SessionResponse> list(
             @Parameter(description = "Exact coach ID; unknown coaches match no sessions.")
             @RequestParam(required = false) UUID coachId,

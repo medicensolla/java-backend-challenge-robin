@@ -421,9 +421,15 @@ class RegistrationLifecycleIT {
         } catch (JsonProcessingException exception) {
             throw new AssertionError("Expected JSON error", exception);
         }
-        assertThat(body.size()).isEqualTo(2);
+        assertThat(body.size()).isEqualTo(6);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(body.fieldNames()).toIterable().containsExactlyInAnyOrder("type", "title", "status", "detail", "instance", "code");
+        assertThat(body.path("type").asText()).isEqualTo("about:blank");
+        assertThat(body.path("title").asText()).isEqualTo(status.getReasonPhrase());
+        assertThat(body.path("status").asInt()).isEqualTo(status.value());
+        assertThat(body.path("instance").asText()).startsWith("/api/").doesNotContain("?");
         assertThat(body.path("code").asText()).isEqualTo(code);
-        assertThat(body.path("message").asText()).isEqualTo(message);
+        assertThat(body.path("detail").asText()).isEqualTo(message);
     }
 
     private static Stream<Arguments> missingResources() {

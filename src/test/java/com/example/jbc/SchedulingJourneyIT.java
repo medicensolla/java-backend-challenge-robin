@@ -227,7 +227,7 @@ class SchedulingJourneyIT {
     private JsonNode assertJsonResponse(ResponseEntity<String> response, HttpStatus status) {
         assertThat(response.getStatusCode()).isEqualTo(status);
         assertThat(response.getHeaders().getContentType()).isNotNull();
-        assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_JSON)).isTrue();
+        assertThat(response.getHeaders().getContentType().isCompatibleWith(status.isError() ? MediaType.APPLICATION_PROBLEM_JSON : MediaType.APPLICATION_JSON)).isTrue();
         assertThat(response.getBody()).isNotBlank();
         try {
             return mapper.readTree(response.getBody());
@@ -238,9 +238,15 @@ class SchedulingJourneyIT {
 
     private void assertError(ResponseEntity<String> response, HttpStatus status, String code, String message) {
         var error = assertJsonResponse(response, status);
-        assertThat(error.size()).isEqualTo(2);
+        assertThat(error.size()).isEqualTo(6);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(error.fieldNames()).toIterable().containsExactlyInAnyOrder("type", "title", "status", "detail", "instance", "code");
+        assertThat(error.path("type").asText()).isEqualTo("about:blank");
+        assertThat(error.path("title").asText()).isEqualTo(status.getReasonPhrase());
+        assertThat(error.path("status").asInt()).isEqualTo(status.value());
+        assertThat(error.path("instance").asText()).startsWith("/api/").doesNotContain("?");
         assertThat(error.path("code").asText()).isEqualTo(code);
-        assertThat(error.path("message").asText()).isEqualTo(message);
+        assertThat(error.path("detail").asText()).isEqualTo(message);
     }
 
     private void assertNoContent(ResponseEntity<String> response) {

@@ -268,25 +268,25 @@ curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 - Input validation precedes resource checks. Registration checks session, participant, duplicate and capacity, in that order. A duplicate takes precedence over a full session. The database UNIQUE constraint also prevents duplicate pairs under concurrent writes.
 - Cancellation removes only the addressed session/registration relationship. A registration belonging to another session, missing registration or repeated cancellation returns `404 REGISTRATION_NOT_FOUND`; session existence is checked first. Deletion rejects a session with registrations; its foreign key also protects against orphan registrations. These operations do not delete people.
 
-Errors use `application/json`, always with `code` and `message`. Field validation also includes nonempty `fieldErrors`, for example:
+Spring MVC errors follow RFC 9457 with `Content-Type: application/problem+json`. They contain `type` (`about:blank`), the standard HTTP `title`, matching `status`, safe `detail`, request-path `instance` without query parameters, and the existing `code`. Clients must read `detail` instead of the removed top-level `message`. Successful responses keep their existing format. Body validation also includes sorted, deduplicated, nonempty `fieldErrors`, for example:
 
 ```json
-{"code":"INVALID_REQUEST","message":"Request contains invalid fields.","fieldErrors":[{"field":"email","message":"must be a valid email"}]}
+{"type":"about:blank","title":"Bad Request","status":400,"detail":"Request contains invalid fields.","instance":"/api/coaches","code":"INVALID_REQUEST","fieldErrors":[{"field":"email","message":"must be a valid email"}]}
 ```
 
 Malformed JSON (including invalid UUIDs or timestamps in JSON bodies) uses `400 INVALID_REQUEST` and `Request body must contain valid JSON.` Malformed path/query UUIDs or query timestamps use `400 INVALID_REQUEST` and `Bad Request`. Invalid time windows have specific messages shown in OpenAPI. Domain errors omit `fieldErrors`; for example:
 
 ```json
-{"code":"SESSION_FULL","message":"Session has reached its capacity."}
+{"type":"about:blank","title":"Conflict","status":409,"detail":"Session has reached its capacity.","instance":"/api/sessions/11111111-1111-4111-8111-111111111111/registrations","code":"SESSION_FULL"}
 ```
 
-Unexpected failures return `{"code":"INTERNAL_ERROR","message":"An unexpected error occurred."}`; internal exception details are logged on the server.
+Unexpected failures return a `500` problem with `code: INTERNAL_ERROR` and `detail: An unexpected error occurred.` Internal exception details are logged only on the server. Framework errors preserve their HTTP status and headers, including `Allow` for 405 responses. Errors outside Spring MVC are not customized.
 
 ## Limits and possible improvements
 
 Capacity checking uses a transaction but does **not serialize concurrent registrations for different participants**; simultaneous requests can exceed capacity. A future change can lock the session row before counting/inserting and add concurrent capacity tests. Duplicate protection is already enforced by the database.
 
-Lists are paginated; errors use the current code/message contract rather than RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
+Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
 
 ## AI assistance and ownership
 
