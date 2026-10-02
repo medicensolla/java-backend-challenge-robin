@@ -12,6 +12,7 @@ import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,11 +81,13 @@ class SessionListingIT {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().isArray()).isTrue();
+        assertThat(response.getBody().path("content").isArray()).isTrue();
+        assertThat(response.getBody().path("totalElements").asInt()).isEqualTo(expected.size());
+        assertThat(response.getBody().path("totalPages").asInt()).isEqualTo(expected.isEmpty() ? 0 : 1);
         var ids = new ArrayList<UUID>();
-        response.getBody().forEach(session -> ids.add(UUID.fromString(session.path("id").asText())));
+        response.getBody().path("content").forEach(session -> ids.add(UUID.fromString(session.path("id").asText())));
         assertThat(ids).containsExactlyElementsOf(expected);
-        response.getBody().forEach(session -> {
+        response.getBody().path("content").forEach(session -> {
             assertThat(session.size()).isEqualTo(6);
             assertThat(UUID.fromString(session.path("coachId").asText())).isIn(COACH_A, COACH_B);
             assertThat(session.path("startTime").asText()).endsWith("Z");
@@ -108,37 +111,37 @@ class SessionListingIT {
     }
 
     @Test
-    void anEmptyDatabaseReturnsAnEmptyArray() {
+    void anEmptyDatabaseReturnsAnEmptyPage() {
         jdbc.update("DELETE FROM sessions");
 
         var response = get(Map.of());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().isArray()).isTrue();
-        assertThat(response.getBody().isEmpty()).isTrue();
+        assertThat(response.getBody().path("content").isArray()).isTrue();
+        assertThat(response.getBody().path("content").isEmpty()).isTrue();
     }
 
     @Test
-    void listsSessionsAndCoachIdsInASingleDatabaseQuery() {
+    void listsSessionsWithOneContentAndOneCountQuery() {
         var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         var wasEnabled = statistics.isStatisticsEnabled();
         statistics.setStatisticsEnabled(true);
         statistics.clear();
         try {
-            var response = get(Map.of());
+            var response = get(Map.of("size", "2"));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
             assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().size()).isEqualTo(6);
-            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+            assertThat(response.getBody().path("content").size()).isEqualTo(2);
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(2);
         } finally {
             statistics.setStatisticsEnabled(wasEnabled);
         }
     }
 
     @Test
-    void documentsTheOptionalFiltersAndArrayResponse() {
+    void documentsTheOptionalFiltersAndPageResponse() {
         var response = http.getForEntity("/v3/api-docs", JsonNode.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -147,10 +150,52 @@ class SessionListingIT {
         assertThat(operation.path("operationId").asText()).isEqualTo("listSessions");
         assertThat(operation.path("responses").fieldNames()).toIterable().containsExactlyInAnyOrder("200", "400", "500");
         var schema = operation.path("responses").path("200").path("content").path("application/json").path("schema");
-        assertThat(schema.path("type").asText()).isEqualTo("array");
-        assertThat(schema.path("items").path("$ref").asText()).isEqualTo("#/components/schemas/SessionResponse");
-        assertThat(operation.path("parameters").findValuesAsText("name")).containsExactly("coachId", "from", "to");
+        var pageSchema = response.getBody().path("components").path("schemas")
+                .path(schema.path("$ref").asText().replace("#/components/schemas/", ""));
+        assertThat(pageSchema.path("properties").fieldNames()).toIterable()
+                .containsExactlyInAnyOrder("content", "page", "size", "totalElements", "totalPages");
+        assertThat(pageSchema.path("properties").path("content").path("items").path("$ref").asText())
+                .isEqualTo("#/components/schemas/SessionResponse");
+        assertThat(operation.path("parameters").findValuesAsText("name")).containsExactly("coachId", "from", "to", "page", "size");
         operation.path("parameters").forEach(parameter -> assertThat(parameter.path("required").asBoolean()).isFalse());
+    }
+
+    @Test
+    void pagesKeepStableOrderAcrossTiesAndReportFilteredTotals() {
+        var expected = List.of(EARLY_B, EARLY_A, TIED_B, TIED_A, LATE_A, LATE_B);
+        var actual = new ArrayList<UUID>();
+        for (int page = 0; page < 2; page++) {
+            var body = get(Map.of("page", Integer.toString(page), "size", "3")).getBody();
+            assertThat(body.path("page").asInt()).isEqualTo(page);
+            assertThat(body.path("size").asInt()).isEqualTo(3);
+            assertThat(body.path("totalElements").asInt()).isEqualTo(6);
+            assertThat(body.path("totalPages").asInt()).isEqualTo(2);
+            body.path("content").forEach(item -> actual.add(UUID.fromString(item.path("id").asText())));
+        }
+        assertThat(actual).containsExactlyElementsOf(expected);
+        var last = get(Map.of("coachId", COACH_A.toString(), "page", "1", "size", "2")).getBody();
+        assertThat(last.path("content").size()).isEqualTo(1);
+        assertThat(last.path("content").get(0).path("id").asText()).isEqualTo(LATE_A.toString());
+        assertThat(last.path("totalElements").asInt()).isEqualTo(3);
+        assertThat(last.path("totalPages").asInt()).isEqualTo(2);
+        var beyond = get(Map.of("page", "10", "size", "2")).getBody();
+        assertThat(beyond.path("content").isEmpty()).isTrue();
+        assertThat(beyond.path("totalElements").asInt()).isEqualTo(6);
+        assertThat(beyond.path("totalPages").asInt()).isEqualTo(3);
+        var defaults = get(Map.of("page", "", "size", "")).getBody();
+        assertThat(defaults.path("page").asInt()).isZero();
+        assertThat(defaults.path("size").asInt()).isEqualTo(20);
+        assertThat(get(Map.of("size", "100")).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "page=-1", "size=0", "size=-1", "size=101", "page=1.5", "size=abc", "page=2147483648"
+    })
+    void rejectsInvalidPagination(String query) {
+        var response = http.getForEntity("/api/sessions?" + query, JsonNode.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
     }
 
     private ResponseEntity<JsonNode> get(Map<String, String> filters) {

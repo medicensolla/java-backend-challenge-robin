@@ -3,16 +3,17 @@ package com.example.jbc.sessions;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 import com.example.jbc.coaches.CoachRepository;
 import com.example.jbc.common.ApiException;
+import com.example.jbc.common.PageResponse;
 import com.example.jbc.registrations.RegistrationRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -49,7 +50,7 @@ public class SessionService {
     }
 
     @Transactional(readOnly = true)
-    public List<SessionResponse> list(UUID coachId, Instant from, Instant to) {
+    public PageResponse<SessionResponse> list(UUID coachId, Instant from, Instant to, int page, int size) {
         var lower = from == null ? null : from.truncatedTo(ChronoUnit.MICROS);
         var upper = to == null ? null : to.truncatedTo(ChronoUnit.MICROS);
         if (lower != null && upper != null && !lower.isBefore(upper)) {
@@ -69,8 +70,8 @@ public class SessionService {
                 predicates.add(builder.lessThan(root.get("startTime"), upper));
             }
             return builder.and(predicates.toArray(Predicate[]::new));
-        }, Sort.by("startTime", "id"));
-        return matches.stream().map(this::toResponse).toList();
+        }, PageRequest.of(page, size, Sort.by("startTime", "id")));
+        return PageResponse.from(matches.map(this::toResponse));
     }
 
     @Transactional

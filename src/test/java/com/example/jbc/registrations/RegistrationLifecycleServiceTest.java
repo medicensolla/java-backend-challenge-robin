@@ -1,6 +1,8 @@
 package com.example.jbc.registrations;
 
 import java.util.List;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import java.util.UUID;
 
 import com.example.jbc.common.ApiException;
@@ -42,7 +44,7 @@ class RegistrationLifecycleServiceTest {
 
     @Test
     void missingSessionPreventsListingRegistrations() {
-        assertThatThrownBy(() -> service.listParticipants(SESSION_ID))
+        assertThatThrownBy(() -> service.listParticipants(SESSION_ID, 0, 20))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
                     assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
                     assertThat(exception.getCode()).isEqualTo("SESSION_NOT_FOUND");
@@ -53,26 +55,26 @@ class RegistrationLifecycleServiceTest {
     @Test
     void existingEmptySessionReturnsAnEmptyList() {
         when(sessions.existsById(SESSION_ID)).thenReturn(true);
-        when(registrations.findAllBySessionIdOrderByParticipantId(SESSION_ID)).thenReturn(List.of());
+        when(registrations.findAllBySessionIdOrderByParticipantId(SESSION_ID, PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
-        assertThat(service.listParticipants(SESSION_ID)).isEmpty();
+        assertThat(service.listParticipants(SESSION_ID, 0, 20).content()).isEmpty();
     }
 
     @Test
     void mapsParticipantDetailsAndTheRegistrationIdAfterCheckingTheSession() {
         when(sessions.existsById(SESSION_ID)).thenReturn(true);
-        when(registrations.findAllBySessionIdOrderByParticipantId(SESSION_ID)).thenReturn(List.of(registration));
+        when(registrations.findAllBySessionIdOrderByParticipantId(SESSION_ID, PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(registration), PageRequest.of(0, 20), 1));
         when(registration.getParticipant()).thenReturn(participant);
         when(registration.getId()).thenReturn(REGISTRATION_ID);
         when(participant.getId()).thenReturn(PARTICIPANT_ID);
         when(participant.getName()).thenReturn("Sam");
         when(participant.getEmail()).thenReturn("sam@example.com");
 
-        assertThat(service.listParticipants(SESSION_ID))
+        assertThat(service.listParticipants(SESSION_ID, 0, 20).content())
                 .containsExactly(new RegisteredParticipantResponse(PARTICIPANT_ID, "Sam", "sam@example.com", REGISTRATION_ID));
         var order = inOrder(sessions, registrations);
         order.verify(sessions).existsById(SESSION_ID);
-        order.verify(registrations).findAllBySessionIdOrderByParticipantId(SESSION_ID);
+        order.verify(registrations).findAllBySessionIdOrderByParticipantId(SESSION_ID, PageRequest.of(0, 20));
         verifyNoInteractions(participants);
     }
 

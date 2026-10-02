@@ -1,8 +1,9 @@
 package com.example.jbc.registrations;
 
-import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -18,7 +19,7 @@ public interface RegistrationRepository extends JpaRepository<Registration, UUID
     boolean existsBySessionId(UUID sessionId);
 
     @EntityGraph(attributePaths = "participant")
-    List<Registration> findAllBySessionIdOrderByParticipantId(UUID sessionId);
+    Page<Registration> findAllBySessionIdOrderByParticipantId(UUID sessionId, Pageable pageable);
 
     @Modifying
     @Query("delete from Registration r where r.session.id = :sessionId and r.id = :registrationId")

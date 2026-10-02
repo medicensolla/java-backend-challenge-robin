@@ -346,33 +346,36 @@
         "tags": [
           "Sessions"
         ],
-        "description": "Optional coachId/from/to filters combine with AND. Supplied bounds are normalized to microsecond precision. Select interval intersections: endTime > from and startTime < to. Either bound may be omitted. Reject from >= to after normalization. Order by startTime then UUID. No matches, including an unknown coach filter, return []. No pagination in this ticket. Query parameters use standard Spring conversion; empty values are treated as omitted. URL-encode positive offsets so + is not decoded as a space.",
+        "description": "Optional coachId/from/to filters combine with AND. Supplied bounds are normalized to microsecond precision. Select interval intersections: endTime > from and startTime < to. Either bound may be omitted. Reject from >= to after normalization. Order by startTime then UUID. No matches, including an unknown coach filter, return empty content and zero totals. Query parameters use standard Spring conversion; empty values are treated as omitted. URL-encode positive offsets so + is not decoded as a space. Returns {content,page,size,totalElements,totalPages}. Pages beyond the last return empty content with matching totals. Invalid pagination returns 400 before resource lookup.",
         "responses": {
           "200": {
             "description": "Successful query.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Session"
-                  }
+                  "$ref": "#/components/schemas/SessionPage"
                 },
-                "example": [
-                  {
-                    "id": "33333333-3333-4333-8333-333333333333",
-                    "coachId": "11111111-1111-4111-8111-111111111111",
-                    "startTime": "2026-10-05T14:00:00Z",
-                    "endTime": "2026-10-05T15:00:00Z",
-                    "capacity": 2,
-                    "location": "Court A"
-                  }
-                ]
+                "example": {
+                  "content": [
+                    {
+                      "id": "33333333-3333-4333-8333-333333333333",
+                      "coachId": "11111111-1111-4111-8111-111111111111",
+                      "startTime": "2026-10-05T14:00:00Z",
+                      "endTime": "2026-10-05T15:00:00Z",
+                      "capacity": 2,
+                      "location": "Court A"
+                    }
+                  ],
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 1,
+                  "totalPages": 1
+                }
               }
             }
           },
           "400": {
-            "description": "See error codes and examples.",
+            "description": "Invalid filters, identifiers or pagination parameters.",
             "content": {
               "application/json": {
                 "schema": {
@@ -423,7 +426,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Exact coach ID. An unknown coach or a coach without sessions returns an empty array."
+            "description": "Exact coach ID. An unknown coach or a coach without sessions returns an page with empty content."
           },
           {
             "name": "from",
@@ -448,6 +451,31 @@
               "description": "ISO-8601 with explicit offset. Normalize to microsecond precision by truncation before filtering. Numeric epochs and offset-free timestamps return 400."
             },
             "description": "Exclusive upper bound against session start; offset required. Truncated to microseconds. URL-encode positive offsets."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Zero-based page. Omitted or empty values use 0.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Omitted or empty values use 20; maximum 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
           }
         ]
       }
@@ -721,31 +749,34 @@
         "tags": [
           "Registrations"
         ],
-        "description": "Include participant id, name, email and registrationId for discoverable cancellation. Order by participant id. An existing empty session returns []; a missing session returns 404. One read-only transaction checks existence then fetches registrations with participants through an EntityGraph, avoiding per-participant queries.",
+        "description": "Include participant id, name, email and registrationId for discoverable cancellation. Order by participant id. An existing empty session returns empty content and zero totals; a missing session returns 404. One read-only transaction checks existence then fetches registrations with participants through an EntityGraph, avoiding per-participant queries. Returns {content,page,size,totalElements,totalPages}. Pages beyond the last return empty content with matching totals. Invalid pagination returns 400 before resource lookup.",
         "responses": {
           "200": {
             "description": "Successful query.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RegisteredParticipant"
-                  }
+                  "$ref": "#/components/schemas/RegisteredParticipantPage"
                 },
-                "example": [
-                  {
-                    "id": "22222222-2222-4222-8222-222222222222",
-                    "name": "Sam Lee",
-                    "email": "sam@example.com",
-                    "registrationId": "44444444-4444-4444-8444-444444444444"
-                  }
-                ]
+                "example": {
+                  "content": [
+                    {
+                      "id": "22222222-2222-4222-8222-222222222222",
+                      "name": "Sam Lee",
+                      "email": "sam@example.com",
+                      "registrationId": "44444444-4444-4444-8444-444444444444"
+                    }
+                  ],
+                  "page": 0,
+                  "size": 20,
+                  "totalElements": 1,
+                  "totalPages": 1
+                }
               }
             }
           },
           "400": {
-            "description": "See error codes and examples.",
+            "description": "Invalid filters, identifiers or pagination parameters.",
             "content": {
               "application/json": {
                 "schema": {
@@ -798,7 +829,34 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Zero-based page. Omitted or empty values use 0.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Omitted or empty values use 20; maximum 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
       }
     },
     "/api/sessions/{sessionId}/registrations/{registrationId}": {
@@ -1217,6 +1275,84 @@
             "example": "Court A"
           }
         }
+      },
+      "SessionPage": {
+        "type": "object",
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "RegisteredParticipantPage": {
+        "type": "object",
+        "required": [
+          "content",
+          "page",
+          "size",
+          "totalElements",
+          "totalPages"
+        ],
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegisteredParticipant"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       }
     }
   },
@@ -1304,13 +1440,13 @@
       "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
     },
     "optionalNotSelected": {
-      "JBC-015": "Pagination",
       "JBC-016": "RFC 9457 errors",
       "JBC-017": "Concurrent registration capacity guarantee",
       "JBC-018": "10x/100x scaling notes"
     },
     "optionalSelected": {
-      "JBC-014": "Maven CI checks included early in JBC-006; runs on PRs to main and main pushes. Merge enforcement is configured separately in GitHub."
+      "JBC-014": "Maven CI checks included early in JBC-006; runs on PRs to main and main pushes. Merge enforcement is configured separately in GitHub.",
+      "JBC-015": "Pagination on sessions and registered participants with bounded page sizes and totals"
     }
   },
   "x-decisions": {
@@ -1338,8 +1474,9 @@
     "localRuntime": "docker compose up --build builds the JAR inside a Java 21 builder and starts a non-root Java 21 runtime with PostgreSQL. GET /actuator/health returns 200 with status UP once the application and database are healthy. PostgreSQL data is stored in a named volume.",
     "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it.",
     "schedulingConcurrency": "Within one transaction, lock the coach row with PESSIMISTIC_WRITE before checking existing.start < proposed.end AND existing.end > proposed.start and inserting the session. The lock also covers empty schedules and is held through commit. Every session creation uses this path; direct database writes bypass this application guarantee. Different coaches lock different rows.",
-    "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; unpaginated array. One read-only database query fetches sessions and coaches; no resource-existence lookup is needed.",
+    "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; paginated content with totals. One content query fetches sessions and coaches, with a count query when needed; no resource-existence lookup is needed.",
     "registrationCreation": "One transaction checks session, participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The existing V2 unique constraint prevents duplicate pairs, while baseline count/check/insert does not prevent concurrent capacity overflow. Concurrent capacity protection remains optional JBC-017; no new locks or migration in JBC-009.",
-    "registrationLifecycle": "Participant listing returns id/name/email/registrationId ordered by participant UUID, with [] for existing empty sessions and 404 for missing sessions. Fetch participants with registrations. Cancellation checks session first and atomically deletes only the matching session/registration pair; zero affected rows mean REGISTRATION_NOT_FOUND. Repeated cancellation is 404; capacity is freed and reinscription generates a new ID. Session deletion checks existence then registrations, rejects nonempty sessions with SESSION_HAS_REGISTRATIONS, and deletes by ID with row-count checking. Only fk_registrations_session violations are mapped to that conflict. Preserve coaches, participants and all unrelated registrations. No cascading deletion, migration or concurrency capacity change."
+    "registrationLifecycle": "Participant listing returns id/name/email/registrationId ordered by participant UUID, in paginated content with totals, with empty content for existing empty sessions and 404 for missing sessions. Fetch participants with registrations. Cancellation checks session first and atomically deletes only the matching session/registration pair; zero affected rows mean REGISTRATION_NOT_FOUND. Repeated cancellation is 404; capacity is freed and reinscription generates a new ID. Session deletion checks existence then registrations, rejects nonempty sessions with SESSION_HAS_REGISTRATIONS, and deletes by ID with row-count checking. Only fk_registrations_session violations are mapped to that conflict. Preserve coaches, participants and all unrelated registrations. No cascading deletion, migration or concurrency capacity change.",
+    "pagination": "Both listing endpoints accept page (default 0, minimum 0) and size (default 20, range 1–100). Empty values use defaults. Return {content,page,size,totalElements,totalPages}; retain fixed ordering and filter before pagination/counting. Invalid values return 400 before existence checks. Out-of-range pages retain totals with empty content. This replaces the baseline array responses."
   }
 }
