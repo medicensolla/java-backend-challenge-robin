@@ -1,14 +1,15 @@
 package com.example.jbc.registrations;
 
-import java.util.List;
 import java.util.UUID;
 
 import com.example.jbc.common.ApiException;
+import com.example.jbc.common.PageResponse;
 import com.example.jbc.participants.ParticipantRepository;
 import com.example.jbc.sessions.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,13 +53,14 @@ public class RegistrationService {
     }
 
     @Transactional(readOnly = true)
-    public List<RegisteredParticipantResponse> listParticipants(UUID sessionId) {
+    public PageResponse<RegisteredParticipantResponse> listParticipants(UUID sessionId, int page, int size) {
         requireSession(sessionId);
-        return registrations.findAllBySessionIdOrderByParticipantId(sessionId).stream().map(registration -> {
+        var matches = registrations.findAllBySessionIdOrderByParticipantId(sessionId, PageRequest.of(page, size));
+        return PageResponse.from(matches.map(registration -> {
             var participant = registration.getParticipant();
             return new RegisteredParticipantResponse(participant.getId(), participant.getName(), participant.getEmail(),
                     registration.getId());
-        }).toList();
+        }));
     }
 
     @Transactional

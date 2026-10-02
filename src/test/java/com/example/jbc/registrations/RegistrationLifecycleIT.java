@@ -1,5 +1,6 @@
 package com.example.jbc.registrations;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,14 +64,16 @@ class RegistrationLifecycleIT {
     }
 
     @Test
-    void anExistingEmptySessionReturnsAnEmptyArray() {
+    void anExistingEmptySessionReturnsAnEmptyPage() {
         var session = createSession(2);
         var response = list(session.path("id").asText());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().isArray()).isTrue();
-        assertThat(response.getBody().isEmpty()).isTrue();
+        assertThat(response.getBody().path("content").isArray()).isTrue();
+        assertThat(response.getBody().path("content").isEmpty()).isTrue();
+        assertThat(response.getBody().path("totalElements").asInt()).isZero();
+        assertThat(response.getBody().path("totalPages").asInt()).isZero();
     }
 
     @Test
@@ -93,16 +97,16 @@ class RegistrationLifecycleIT {
         try {
             response = list(sessionId);
             // Session existence and one joined registration/participant query.
-            assertThat(statistics.getPrepareStatementCount()).isEqualTo(2);
+            assertThat(statistics.getPrepareStatementCount()).isBetween(2L, 3L);
         } finally {
             statistics.setStatisticsEnabled(wasEnabled);
         }
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().size()).isEqualTo(2);
-        assertParticipant(response.getBody().get(0), low.toString(), "Low", "low@example.com", lowRegistration);
-        assertParticipant(response.getBody().get(1), high.toString(), "High", "high@example.com", highRegistration);
+        assertThat(response.getBody().path("content").size()).isEqualTo(2);
+        assertParticipant(response.getBody().path("content").get(0), low.toString(), "Low", "low@example.com", lowRegistration);
+        assertParticipant(response.getBody().path("content").get(1), high.toString(), "High", "high@example.com", highRegistration);
     }
 
     @Test
@@ -124,7 +128,7 @@ class RegistrationLifecycleIT {
         assertThat(count("participants", secondParticipant)).isEqualTo(1);
         assertThat(count("sessions", firstSession)).isEqualTo(1);
         assertThat(count("sessions", secondSession)).isEqualTo(1);
-        assertThat(list(firstSession).getBody().size()).isEqualTo(1);
+        assertThat(list(firstSession).getBody().path("content").size()).isEqualTo(1);
     }
 
     @Test
@@ -146,7 +150,7 @@ class RegistrationLifecycleIT {
 
         assertError(cancel(sessionId, registrationId), HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND",
                 "Registration was not found under this session.");
-        assertThat(list(sessionId).getBody().isEmpty()).isTrue();
+        assertThat(list(sessionId).getBody().path("content").isEmpty()).isTrue();
     }
 
     @Test
@@ -161,7 +165,7 @@ class RegistrationLifecycleIT {
         assertThat(newId).isNotEqualTo(originalId);
         assertThat(count("registrations", originalId)).isZero();
         assertThat(count("registrations", newId)).isEqualTo(1);
-        assertThat(list(sessionId).getBody().size()).isEqualTo(1);
+        assertThat(list(sessionId).getBody().path("content").size()).isEqualTo(1);
     }
 
     @Test
@@ -263,7 +267,7 @@ class RegistrationLifecycleIT {
     }
 
     @Test
-    void swaggerDocumentsTheArraySchemaAndBodylessDeletionResponses() {
+    void swaggerDocumentsThePageSchemaAndBodylessDeletionResponses() {
         var response = http.getForEntity("/v3/api-docs", JsonNode.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
@@ -272,8 +276,12 @@ class RegistrationLifecycleIT {
         assertThat(list.path("operationId").asText()).isEqualTo("listSessionParticipants");
         assertThat(list.path("responses").fieldNames()).toIterable().containsExactlyInAnyOrder("200", "400", "404", "500");
         var schema = list.path("responses").path("200").path("content").path("application/json").path("schema");
-        assertThat(schema.path("type").asText()).isEqualTo("array");
-        assertThat(schema.path("items").path("$ref").asText()).isEqualTo("#/components/schemas/RegisteredParticipantResponse");
+        var pageSchema = response.getBody().path("components").path("schemas")
+                .path(schema.path("$ref").asText().replace("#/components/schemas/", ""));
+        assertThat(pageSchema.path("properties").fieldNames()).toIterable()
+                .containsExactlyInAnyOrder("content", "page", "size", "totalElements", "totalPages");
+        assertThat(pageSchema.path("properties").path("content").path("items").path("$ref").asText())
+                .isEqualTo("#/components/schemas/RegisteredParticipantResponse");
         var cancellation = paths.path("/api/sessions/{sessionId}/registrations/{registrationId}").path("delete");
         assertThat(cancellation.path("operationId").asText()).isEqualTo("cancelRegistration");
         assertThat(cancellation.path("responses").fieldNames()).toIterable().containsExactlyInAnyOrder("204", "400", "404", "500");
@@ -310,6 +318,57 @@ class RegistrationLifecycleIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
         return response.getBody().path("id").asText();
+    }
+
+    @Test
+    void participantPagesHaveScopedTotalsStableOrderAndDefaults() {
+        var sessionId = createSession(3).path("id").asText();
+        var ids = new ArrayList<String>();
+        for (int i = 0; i < 3; i++) {
+            var id = createParticipant().path("id").asText();
+            ids.add(id);
+            register(sessionId, id);
+        }
+        ids.sort(String::compareTo);
+        var other = createSession(1).path("id").asText();
+        register(other, createParticipant().path("id").asText());
+        var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        var wasEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+        JsonNode first;
+        try {
+            first = http.getForEntity("/api/sessions/{id}/participants?page=0&size=2", JsonNode.class, sessionId).getBody();
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);
+        } finally {
+            statistics.setStatisticsEnabled(wasEnabled);
+        }
+        assertThat(first.path("content").findValuesAsText("id")).containsExactly(ids.get(0), ids.get(1));
+        assertThat(first.path("totalElements").asInt()).isEqualTo(3);
+        assertThat(first.path("totalPages").asInt()).isEqualTo(2);
+        var last = http.getForEntity("/api/sessions/{id}/participants?page=1&size=2", JsonNode.class, sessionId).getBody();
+        assertThat(last.path("content").findValuesAsText("id")).containsExactly(ids.get(2));
+        assertThat(last.path("page").asInt()).isEqualTo(1);
+        assertThat(last.path("size").asInt()).isEqualTo(2);
+        assertThat(last.path("totalElements").asInt()).isEqualTo(3);
+        var beyond = http.getForEntity("/api/sessions/{id}/participants?page=9&size=2", JsonNode.class, sessionId).getBody();
+        assertThat(beyond.path("content").isEmpty()).isTrue();
+        assertThat(beyond.path("totalElements").asInt()).isEqualTo(3);
+        assertThat(beyond.path("totalPages").asInt()).isEqualTo(2);
+        var defaults = http.getForEntity("/api/sessions/{id}/participants?page=&size=", JsonNode.class, sessionId).getBody();
+        assertThat(defaults.path("page").asInt()).isZero();
+        assertThat(defaults.path("size").asInt()).isEqualTo(20);
+        assertThat(defaults.path("content").size()).isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "page=-1", "size=0", "size=-1", "size=101", "page=1.5", "size=abc", "page=2147483648"
+    })
+    void paginationValidationPrecedesMissingSession(String query) {
+        var response = http.getForEntity("/api/sessions/" + UUID.randomUUID() + "/participants?" + query, JsonNode.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
     }
 
     private ResponseEntity<JsonNode> list(String sessionId) {

@@ -1,10 +1,10 @@
 package com.example.jbc.sessions;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,7 +20,7 @@ public interface SessionRepository extends JpaRepository<TrainingSession, UUID>,
 
     @Override
     @EntityGraph(attributePaths = "coach")
-    List<TrainingSession> findAll(Specification<TrainingSession> specification, Sort sort);
+    Page<TrainingSession> findAll(Specification<TrainingSession> specification, Pageable pageable);
 
     @Modifying
     @Query("delete from TrainingSession s where s.id = :sessionId")

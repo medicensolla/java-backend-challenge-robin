@@ -112,7 +112,7 @@ class SessionServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"2026-10-05T13:00:00Z", "2026-10-05T14:00:00Z", "2026-10-05T14:00:00.000000999Z"})
     void rejectsInvalidFilterRangesBeforeQueryingSessions(String to) {
-        assertThatThrownBy(() -> service.list(null, START, Instant.parse(to)))
+        assertThatThrownBy(() -> service.list(null, START, Instant.parse(to), 0, 20))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
                     assertThat(exception.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
                     assertThat(exception.getCode()).isEqualTo("INVALID_REQUEST");

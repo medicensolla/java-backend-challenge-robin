@@ -1,10 +1,10 @@
 package com.example.jbc.sessions;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 import com.example.jbc.common.ApiError;
+import com.example.jbc.common.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -72,13 +74,13 @@ public class SessionController {
     @GetMapping
     @Operation(operationId = "listSessions", summary = "List and filter sessions",
             description = "Optional filters combine with AND. Select sessions intersecting [from, to): endTime > from and startTime < to. "
-                    + "Either bound may be omitted. Order by startTime then ID. No matches return an empty array.")
+                    + "Either bound may be omitted. Order by startTime then ID. Returns a page with totals; no matches return empty content.")
     @ApiResponse(responseCode = "200", description = "Matching sessions")
-    @ApiResponse(responseCode = "400", description = "Invalid filter or time interval",
+    @ApiResponse(responseCode = "400", description = "Invalid filter, time interval or pagination",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    public List<SessionResponse> list(
+    public PageResponse<SessionResponse> list(
             @Parameter(description = "Exact coach ID; unknown coaches match no sessions.")
             @RequestParam(required = false) UUID coachId,
             @Parameter(description = "ISO-8601 with explicit offset; exclusive test against session end. Truncated to microseconds.",
@@ -86,7 +88,11 @@ public class SessionController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @Parameter(description = "ISO-8601 with explicit offset; exclusive upper bound against session start. Truncated to microseconds.",
                     example = "2026-10-05T15:00:00Z")
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
-        return service.list(coachId, from == null ? null : from.toInstant(), to == null ? null : to.toInstant());
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
+            @Parameter(description = "Zero-based page; omitted or empty values use 0.")
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @Parameter(description = "Page size from 1 to 100; omitted or empty values use 20.")
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return service.list(coachId, from == null ? null : from.toInstant(), to == null ? null : to.toInstant(), page, size);
     }
 }

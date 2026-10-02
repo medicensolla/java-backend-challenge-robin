@@ -88,13 +88,17 @@ All request/response bodies are JSON. Creation endpoints return the resource's g
 | POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
 | POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
 | POST | `/api/sessions` | `201` `{id,coachId,startTime,endTime,capacity,location}` | `400 INVALID_REQUEST`, `404 COACH_NOT_FOUND`, `409 COACH_OVERLAP` |
-| GET | `/api/sessions?coachId=…&from=…&to=…` | `200` session array | `400 INVALID_REQUEST` |
+| GET | `/api/sessions?coachId=…&from=…&to=…` | `200` session page | `400 INVALID_REQUEST` |
 | POST | `/api/sessions/{sessionId}/registrations` | `201` `{id,sessionId,participantId}` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / PARTICIPANT_NOT_FOUND`, `409 DUPLICATE_REGISTRATION / SESSION_FULL` |
-| GET | `/api/sessions/{sessionId}/participants` | `200` `[{id,name,email,registrationId}]` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND` |
+| GET | `/api/sessions/{sessionId}/participants` | `200` participant page | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND` |
 | DELETE | `/api/sessions/{sessionId}/registrations/{registrationId}` | `204` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / REGISTRATION_NOT_FOUND` |
 | DELETE | `/api/sessions/{sessionId}` | `204` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND`, `409 SESSION_HAS_REGISTRATIONS` |
 
 Unexpected failures return `500 INTERNAL_ERROR` with a sanitized message. There are no separate GET-by-ID endpoints for coaches, participants or sessions; use creation responses, filtered session listing and registered participant listing.
+
+Both GET lists accept `page` (zero-based, default `0`) and `size` (default `20`, maximum `100`). Omitted or empty values use defaults. Responses are `{content, page, size, totalElements, totalPages}`; `content` contains the same session or participant fields described above. Filters apply before pagination and totals. Sessions remain ordered by start time then UUID; participants by UUID. Invalid integers, negative pages and sizes outside `1–100` return `400 INVALID_REQUEST`, before checking session existence.
+
+An empty result has `content: []`, `totalElements: 0`, and `totalPages: 0`. A page beyond the last retains the matching totals but has empty content. A missing session still returns `404` when listing participants. This replaces the previous array response, including requests without pagination parameters. Offset pagination does not provide a fixed snapshot across requests if records change between pages.
 
 ## Complete curl walkthrough
 
@@ -156,7 +160,9 @@ List with all three filters (`200`, including the created session). `--get --dat
 curl -i --get "$BASE_URL/api/sessions" \
   --data-urlencode "coachId=$COACH_ID" \
   --data-urlencode 'from=2026-10-05T16:00:00+02:00' \
-  --data-urlencode 'to=2026-10-05T17:00:00+02:00'
+  --data-urlencode 'to=2026-10-05T17:00:00+02:00' \
+  --data-urlencode 'page=0' \
+  --data-urlencode 'size=20'
 ```
 
 Register Sam (`201`), occupying the last available place. Save the **registration's own `id`**, which differs from the participant ID:
@@ -174,7 +180,7 @@ REGISTRATION_ID='<copy registration id>'
 List participants (`200`). Sam's `id` is the participant ID; `registrationId` equals the registration just created:
 
 ```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants"
+curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 ```
 
 Register Sam again: `409 DUPLICATE_REGISTRATION`, even though the session is now full:
@@ -233,14 +239,14 @@ curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
 FINAL_REGISTRATION_ID='<copy Taylor registration id>'
 ```
 
-Cancel Taylor (`204`), confirm an empty participant list (`200`, `[]`), then delete the empty session (`204`). Coaches and participants remain stored:
+Cancel Taylor (`204`), confirm an empty participant list (`200`, empty `content`), then delete the empty session (`204`). Coaches and participants remain stored:
 
 ```sh
 curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID/registrations/$FINAL_REGISTRATION_ID"
 ```
 
 ```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants"
+curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 ```
 
 ```sh
@@ -250,14 +256,14 @@ curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID"
 Listing participants for the deleted session now returns `404 SESSION_NOT_FOUND`:
 
 ```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants"
+curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 ```
 
 ## Rules and error format
 
 - Session intervals are half-open `[startTime, endTime)`: adjacent sessions are allowed; overlapping sessions for the same coach are rejected. Different coaches can teach simultaneously. Application scheduling locks the coach row through commit, including when its schedule is empty.
 - Inputs require ISO-8601 timestamps with `Z` or an explicit offset such as `-04:00`. Values are truncated, not rounded, to PostgreSQL microseconds before validation and comparisons. Responses use UTC `Z`; the original timezone is not retained. `startTime` must remain strictly before `endTime` after truncation. Numeric timestamps and offset-free timestamps are invalid.
-- Session filters combine with AND and select interval intersections: `endTime > from` and `startTime < to`. Either bound may be omitted; when both are provided, `from < to` is required after truncation. An unknown coach matches `[]`. Sessions sort by start time then UUID; registered participants sort by participant UUID. Existing empty sessions return `[]` for participants; missing sessions return `404`.
+- Session filters combine with AND and select interval intersections: `endTime > from` and `startTime < to`. Either bound may be omitted; when both are provided, `from < to` is required after truncation. An unknown coach returns empty content and zero totals. Sessions sort by start time then UUID; registered participants sort by participant UUID. Existing empty sessions return empty participant content and zero totals; missing sessions return `404`.
 - Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Emails are not unique. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
 - Input validation precedes resource checks. Registration checks session, participant, duplicate and capacity, in that order. A duplicate takes precedence over a full session. The database UNIQUE constraint also prevents duplicate pairs under concurrent writes.
 - Cancellation removes only the addressed session/registration relationship. A registration belonging to another session, missing registration or repeated cancellation returns `404 REGISTRATION_NOT_FOUND`; session existence is checked first. Deletion rejects a session with registrations; its foreign key also protects against orphan registrations. These operations do not delete people.
@@ -280,7 +286,7 @@ Unexpected failures return `{"code":"INTERNAL_ERROR","message":"An unexpected er
 
 Capacity checking uses a transaction but does **not serialize concurrent registrations for different participants**; simultaneous requests can exceed capacity. A future change can lock the session row before counting/inserting and add concurrent capacity tests. Duplicate protection is already enforced by the database.
 
-Lists are unpaginated, and errors use the current code/message contract rather than RFC 9457. Pagination, production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
+Lists are paginated; errors use the current code/message contract rather than RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
 
 ## AI assistance and ownership
 

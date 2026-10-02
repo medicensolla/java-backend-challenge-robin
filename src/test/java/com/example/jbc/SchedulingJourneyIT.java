@@ -197,14 +197,14 @@ class SchedulingJourneyIT {
         filters.forEach((name, value) -> uri.queryParam(name, "{" + name + "}"));
         // Encode URI variables strictly, preserving the '+' in positive UTC offsets.
         var response = http.getForEntity(uri.encode().buildAndExpand(filters).toUri(), String.class);
-        var sessions = assertJsonResponse(response, HttpStatus.OK);
+        var sessions = assertJsonResponse(response, HttpStatus.OK).path("content");
         assertThat(sessions.isArray()).isTrue();
         return sessions;
     }
 
     private JsonNode listParticipants(String sessionId) {
         var participants = assertJsonResponse(exchange(HttpMethod.GET, "/api/sessions/" + sessionId + "/participants", null),
-                HttpStatus.OK);
+                HttpStatus.OK).path("content");
         assertThat(participants.isArray()).isTrue();
         return participants;
     }
