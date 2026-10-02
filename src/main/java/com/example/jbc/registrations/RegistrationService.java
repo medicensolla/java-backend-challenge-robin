@@ -1,5 +1,6 @@
 package com.example.jbc.registrations;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.example.jbc.common.ApiException;
@@ -48,6 +49,31 @@ public class RegistrationService {
             throw exception;
         }
         return new RegistrationResponse(registration.getId(), sessionId, participant.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<RegisteredParticipantResponse> listParticipants(UUID sessionId) {
+        requireSession(sessionId);
+        return registrations.findAllBySessionIdOrderByParticipantId(sessionId).stream().map(registration -> {
+            var participant = registration.getParticipant();
+            return new RegisteredParticipantResponse(participant.getId(), participant.getName(), participant.getEmail(),
+                    registration.getId());
+        }).toList();
+    }
+
+    @Transactional
+    public void cancel(UUID sessionId, UUID registrationId) {
+        requireSession(sessionId);
+        if (registrations.deleteBySessionAndRegistrationId(sessionId, registrationId) == 0) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND",
+                    "Registration was not found under this session.");
+        }
+    }
+
+    private void requireSession(UUID sessionId) {
+        if (!sessions.existsById(sessionId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session was not found.");
+        }
     }
 
     private ApiException duplicateRegistration() {

@@ -16,7 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +49,24 @@ public class SessionController {
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     public SessionResponse create(@Valid @RequestBody CreateSessionRequest request) {
         return service.create(request);
+    }
+
+    @DeleteMapping("/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "deleteSession", summary = "Delete an empty session",
+            description = "Check session existence first. Cancel all registrations before deleting the session. "
+                    + "The database foreign key also blocks deletion if a registration appears after the check.")
+    @ApiResponse(responseCode = "204", description = "Session deleted", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Invalid session UUID",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "404", description = "Session was not found",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "409", description = "Session has registrations",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "500", description = "Unexpected failure",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    public void delete(@PathVariable UUID sessionId) {
+        service.delete(sessionId);
     }
 
     @GetMapping
