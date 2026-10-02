@@ -21,7 +21,8 @@ Expected: `200` with `{"status":"UP"}`. The application waits for PostgreSQL, ap
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html): interactive requests and DTO examples.
 - [Generated OpenAPI](http://localhost:8080/v3/api-docs): documentation generated from the running application.
 - [Versioned OpenAPI contract](api/openapi.json): examples, error codes and project decisions.
-- [Coach-name migration ADR](documentation/ADR-001-coach-name-expansion.md): version compatibility, migration safety and rollback.
+- [Final verification report](docs/FINAL-VERIFICATION.md): clean-clone tests, Compose startup, persistence and immutable migrations.
+- [Coach-name migration ADR](docs/ADR-001-coach-name-expansion.md): version compatibility, migration safety and rollback.
 
 Compose binds the application to `127.0.0.1`. PostgreSQL is reachable inside the Compose network and **does not expose a host database port**. If 8080 is occupied, use `PORT=18080 docker compose up --build` and substitute that port in the URLs.
 
@@ -85,8 +86,8 @@ All request/response bodies are JSON. Creation endpoints return the resource's g
 
 | Method | Route | Success | Main errors |
 | --- | --- | --- | --- |
-| POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
-| POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
+| POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_COACH` |
+| POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_PARTICIPANT` |
 | POST | `/api/sessions` | `201` `{id,coachId,startTime,endTime,capacity,location}` | `400 INVALID_REQUEST`, `404 COACH_NOT_FOUND`, `409 COACH_OVERLAP` |
 | GET | `/api/sessions?coachId=…&from=…&to=…` | `200` session page | `400 INVALID_REQUEST` |
 | POST | `/api/sessions/{sessionId}/registrations` | `201` `{id,sessionId,participantId}` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / PARTICIPANT_NOT_FOUND`, `409 DUPLICATE_REGISTRATION / SESSION_FULL` |
@@ -264,7 +265,7 @@ curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 - Session intervals are half-open `[startTime, endTime)`: adjacent sessions are allowed; overlapping sessions for the same coach are rejected. Different coaches can teach simultaneously. Application scheduling locks the coach row through commit, including when its schedule is empty.
 - Inputs require ISO-8601 timestamps with `Z` or an explicit offset such as `-04:00`. Values are truncated, not rounded, to PostgreSQL microseconds before validation and comparisons. Responses use UTC `Z`; the original timezone is not retained. `startTime` must remain strictly before `endTime` after truncation. Numeric timestamps and offset-free timestamps are invalid.
 - Session filters combine with AND and select interval intersections: `endTime > from` and `startTime < to`. Either bound may be omitted; when both are provided, `from < to` is required after truncation. An unknown coach returns empty content and zero totals. Sessions sort by start time then UUID; registered participants sort by participant UUID. Existing empty sessions return empty participant content and zero totals; missing sessions return `404`.
-- Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Emails are not unique. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
+- Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Names and emails individually are not unique. Creating an existing name/email combination returns `409 DUPLICATE_COACH` or `409 DUPLICATE_PARTICIPANT`, checked separately within each role. Comparison ignores case, collapses the six ASCII whitespace characters in names and trims surrounding ASCII whitespace from emails; accents remain significant. The same combination may exist as both a coach and a participant. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
 - Input validation precedes resource checks. Registration locks the session row, then checks participant, duplicate and capacity, in that order. A duplicate takes precedence over a full session. The database UNIQUE constraint also prevents duplicate pairs under concurrent writes.
 - Cancellation removes only the addressed session/registration relationship. A registration belonging to another session, missing registration or repeated cancellation returns `404 REGISTRATION_NOT_FOUND`; session existence is checked first. Deletion rejects a session with registrations; its foreign key also protects against orphan registrations. These operations do not delete people.
 
@@ -284,11 +285,13 @@ Unexpected failures return a `500` problem with `code: INTERNAL_ERROR` and `deta
 
 ## Limits and possible improvements
 
+People creation checks the name/email combination in the Java service before saving. This is an additional project decision; the challenge does not require this uniqueness rule. Existing duplicate rows remain intact. There is no database UNIQUE constraint or new lock for this combination, so simultaneous requests can both pass the check and create duplicates. Direct database writes also bypass this check. The existing validation rules still apply before lookup; an invalid email is rejected rather than normalized into a valid one.
+
 Registration creation holds a pessimistic write lock on the session row until its transaction commits or rolls back. Under PostgreSQL READ COMMITTED, the next registration checks capacity after the previous transaction completes. Two distinct participants competing for the last slot receive one `201` and one `409 SESSION_FULL`; concurrent requests for the same participant receive one `201` and one `409 DUPLICATE_REGISTRATION`. Sessions lock independently, including across application instances sharing the database. The existing UNIQUE constraint remains a second defense against duplicate pairs.
 
 Capacity protection applies to this application registration flow, not direct SQL writes. Cancellation remains independent: a concurrent cancellation may free a slot after a `SESSION_FULL` response. No capacity-update endpoint is provided.
 
-Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Final clean-clone/restart/submission verification is a separate delivery step.
+Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Local clean-clone and restart verification passed; see the [final verification report](docs/FINAL-VERIFICATION.md) for evidence and delivery limits.
 
 ## AI assistance and ownership
 

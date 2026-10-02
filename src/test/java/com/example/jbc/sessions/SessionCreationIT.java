@@ -193,7 +193,8 @@ class SessionCreationIT {
     }
 
     private UUID createCoach() {
-        var response = http.postForEntity("/api/coaches", Map.of("name", "Alex Rivera", "email", "alex@example.com"), JsonNode.class);
+        var response = http.postForEntity("/api/coaches",
+                Map.of("name", "Alex Rivera", "email", "alex-" + UUID.randomUUID() + "@example.com"), JsonNode.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
         return UUID.fromString(response.getBody().path("id").asText());

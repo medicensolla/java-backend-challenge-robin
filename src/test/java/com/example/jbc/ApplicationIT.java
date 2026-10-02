@@ -80,6 +80,7 @@ class ApplicationIT {
             var documentedResponses = response.getBody().path("paths").path(endpoint).path("post").path("responses");
             assertThat(documentedResponses.has("201")).isTrue();
             assertThat(documentedResponses.has("400")).isTrue();
+            assertThat(documentedResponses.has("409")).isTrue();
             assertThat(documentedResponses.has("500")).isTrue();
         }
         var health = http.getForEntity("/actuator/health", JsonNode.class);
@@ -125,7 +126,7 @@ class ApplicationIT {
     }
     @ParameterizedTest
     @ValueSource(strings = {"/api/coaches", "/api/participants"})
-    void createsPeopleWithIdsAndAllowsRepeatedEmails(String endpoint) {
+    void createsPeopleWithIdsAndAllowsRepeatedEmailsForDifferentNames(String endpoint) {
         var payload = Map.of("name", "Alex Rivera", "email", "alex@example.com");
         var response = http.postForEntity(endpoint, payload, JsonNode.class);
 
@@ -142,7 +143,8 @@ class ApplicationIT {
         assertThat(jdbc.queryForObject("SELECT email FROM " + table + " WHERE id = ?", String.class, id))
                 .isEqualTo(payload.get("email"));
 
-        var repeatedEmail = http.postForEntity(endpoint, payload, JsonNode.class);
+        var repeatedEmail = http.postForEntity(endpoint,
+                Map.of("name", "Taylor Kim", "email", payload.get("email")), JsonNode.class);
         assertThat(repeatedEmail.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(repeatedEmail.getBody()).isNotNull();
         assertThat(UUID.fromString(repeatedEmail.getBody().path("id").asText())).isNotEqualTo(id);

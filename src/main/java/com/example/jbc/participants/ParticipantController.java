@@ -26,11 +26,16 @@ public class ParticipantController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "createParticipant", summary = "Create a participant")
+    @Operation(operationId = "createParticipant", summary = "Create a participant",
+            description = "Reject an existing participant name/email combination ignoring case and name whitespace. "
+                    + "Preserve supplied names and emails. Coaches are checked separately. "
+                    + "This application check does not prevent simultaneous duplicate creations.")
     @ApiResponse(responseCode = "201", description = "Resource created")
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "400", description = "Invalid request",
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
+    @ApiResponse(responseCode = "409", description = "DUPLICATE_PARTICIPANT: participant name/email combination already exists",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public ParticipantResponse create(@Valid @RequestBody CreateParticipantRequest request) {
         return service.create(request);
