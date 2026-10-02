@@ -33,7 +33,7 @@
         "tags": [
           "Coaches"
         ],
-        "description": "Name and email must be nonblank; email must be valid. Emails are not unique identities. Normalize surrounding and repeated ASCII whitespace (space, tab, line breaks, vertical tab and form feed) in coach names. Internally store the first word as first_name and the remainder as last_name; a single word has an empty last_name. Return the same id/name/email DTO with the normalized public name. Participant names remain unchanged.",
+        "description": "Name and email must be nonblank; email must be valid. Emails are not unique identities. Normalize surrounding and repeated ASCII whitespace (space, tab, line breaks, vertical tab and form feed) in coach names. Internally store the first word as first_name and the remainder as last_name; a single word has an empty last_name. Return the same id/name/email DTO with the normalized public name. Participant names remain unchanged. Reject an existing name/email combination within this role with 409 DUPLICATE_COACH. Compare case-insensitively, normalize ASCII whitespace in names and trim surrounding ASCII whitespace from emails, preserving accents and existing public values. The Java service checks existence before saving; simultaneous duplicate creations are not prevented.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -109,6 +109,28 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Name/email combination already exists within this role.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                },
+                "examples": {
+                  "DUPLICATE_COACH": {
+                    "value": {
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Coach with this name and email already exists.",
+                      "instance": "/api/coaches",
+                      "code": "DUPLICATE_COACH"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -134,7 +156,7 @@
         "tags": [
           "Participants"
         ],
-        "description": "IDs identify participants; the same email may occur on multiple records.",
+        "description": "IDs identify participants; the same email may occur on multiple records. Reject an existing name/email combination within this role with 409 DUPLICATE_PARTICIPANT. Compare case-insensitively, normalize ASCII whitespace in names and trim surrounding ASCII whitespace from emails, preserving accents and existing public values. The Java service checks existence before saving; simultaneous duplicate creations are not prevented.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -205,6 +227,28 @@
                       "detail": "An unexpected error occurred.",
                       "instance": "/api/participants",
                       "code": "INTERNAL_ERROR"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Name/email combination already exists within this role.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                },
+                "examples": {
+                  "DUPLICATE_PARTICIPANT": {
+                    "value": {
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Participant with this name and email already exists.",
+                      "instance": "/api/participants",
+                      "code": "DUPLICATE_PARTICIPANT"
                     }
                   }
                 }
@@ -1489,7 +1533,9 @@
               "DUPLICATE_REGISTRATION",
               "SESSION_FULL",
               "SESSION_HAS_REGISTRATIONS",
-              "INTERNAL_ERROR"
+              "INTERNAL_ERROR",
+              "DUPLICATE_COACH",
+              "DUPLICATE_PARTICIPANT"
             ],
             "example": "INVALID_REQUEST"
           },
@@ -1614,7 +1660,7 @@
     "stack": "Java 21, Spring Boot 3.5.16, Maven 3.9.16 with Wrapper 3.3.4, Spring Web, Bean Validation, Spring Data JPA, PostgreSQL, Flyway, JUnit, Testcontainers and springdoc 2.9.1. Other dependency and plugin versions are managed by the Boot parent.",
     "schemaOwnership": "Flyway owns the schema; Hibernate ddl-auto=validate, never update. Released migrations remain unchanged.",
     "time": "Persist timestamptz; compare Java Instant values in UTC; configure UTC. Input timestamps must be ISO-8601 strings with explicit offsets; reject numeric timestamps. Truncate to microsecond precision before window validation, overlap checks and persistence; responses use the same precision in UTC Z. Original input timezone is not retained.",
-    "identity": "UUID IDs, including registration IDs. Emails are not unique.",
+    "identity": "UUID IDs, including registration IDs. Names and emails individually are not unique; reject matching name/email combinations separately within coaches and participants. The same combination can belong to both roles.",
     "validation": "Nonblank names, location and valid nonblank emails, capacity > 0, startTime < endTime; past sessions allowed. Invalid UUIDs and offset-free timestamps return 400.",
     "publicCoachName": "Keep the name API field through internal first_name/last_name expansion.",
     "nameSplit": "For coaches, normalize ASCII whitespace identically in Java and SQL (space, tab, LF, VT, FF, CR), trim surrounding spaces, first word -> first_name, remainder -> last_name; a single word has empty last_name. Keep the public name API field, recomposed from split fields. Names are normalized at creation, legacy writes and backfill. This is a pragmatic, culturally imperfect policy; participants are unchanged.",
@@ -1637,6 +1683,7 @@
     "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; paginated content with totals. One content query fetches sessions and coaches, with a count query when needed; no resource-existence lookup is needed.",
     "registrationCreation": "One transaction locks the session row with PESSIMISTIC_WRITE, checks participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The lock is retained through commit or rollback, serializing registration creation per session under PostgreSQL READ COMMITTED, including across application instances. Different sessions lock independently. The V2 unique constraint still prevents duplicate pairs. Direct SQL writes bypass the application capacity guarantee; a concurrent cancellation may free capacity after a SESSION_FULL response. No schema change is needed.",
     "registrationLifecycle": "Participant listing returns id/name/email/registrationId ordered by participant UUID, in paginated content with totals, with empty content for existing empty sessions and 404 for missing sessions. Fetch participants with registrations. Cancellation checks session first and atomically deletes only the matching session/registration pair; zero affected rows mean REGISTRATION_NOT_FOUND. Repeated cancellation is 404; capacity is freed and reinscription generates a new ID. Session deletion checks existence then registrations, rejects nonempty sessions with SESSION_HAS_REGISTRATIONS, and deletes by ID with row-count checking. Only fk_registrations_session violations are mapped to that conflict. Preserve coaches, participants and all unrelated registrations. No cascading deletion, migration or concurrency capacity change.",
-    "pagination": "Both listing endpoints accept page (default 0, minimum 0) and size (default 20, range 1–100). Empty values use defaults. Return {content,page,size,totalElements,totalPages}; retain fixed ordering and filter before pagination/counting. Invalid values return 400 before existence checks. Out-of-range pages retain totals with empty content. This replaces the baseline array responses."
+    "pagination": "Both listing endpoints accept page (default 0, minimum 0) and size (default 20, range 1–100). Empty values use defaults. Return {content,page,size,totalElements,totalPages}; retain fixed ordering and filter before pagination/counting. Invalid values return 400 before existence checks. Out-of-range pages retain totals with empty content. This replaces the baseline array responses.",
+    "peopleCreation": "After HTTP validation, the Java service checks normalized name/email existence before saving in its transaction. Repository EXISTS queries normalize both stored values and parameters: lower(normalize_coach_name(name)), and lower(email trimmed of surrounding space/TAB/LF/VT/FF/CR). Names collapse the same six ASCII whitespace characters; accents remain significant. Preserve current public values and validation. Return 409 DUPLICATE_COACH or DUPLICATE_PARTICIPANT. Existing duplicates are not deleted or merged. No UNIQUE, migration or extra lock is added; simultaneous creations can both pass the check. This is an additional owner-selected business rule rather than a PDF requirement."
   }
 }

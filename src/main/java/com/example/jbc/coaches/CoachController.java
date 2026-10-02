@@ -28,11 +28,15 @@ public class CoachController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createCoach", summary = "Create a coach",
             description = "Normalize surrounding and repeated ASCII whitespace in the name. "
-                    + "Internally split the first word from the remainder while keeping the public name field.")
+                    + "Internally split the first word from the remainder while keeping the public name field. "
+                    + "Reject an existing coach name/email combination ignoring case and name whitespace. "
+                    + "This application check does not prevent simultaneous duplicate creations.")
     @ApiResponse(responseCode = "201", description = "Resource created")
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "400", description = "Invalid request",
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
+    @ApiResponse(responseCode = "409", description = "DUPLICATE_COACH: coach name/email combination already exists",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public CoachResponse create(@Valid @RequestBody CreateCoachRequest request) {
         return service.create(request);

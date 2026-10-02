@@ -294,7 +294,8 @@ class RegistrationLifecycleIT {
     }
 
     private JsonNode createSession(int capacity) {
-        var coach = http.postForEntity("/api/coaches", Map.of("name", "Alex", "email", "alex@example.com"), JsonNode.class);
+        var coach = http.postForEntity("/api/coaches",
+                Map.of("name", "Alex", "email", "alex-" + UUID.randomUUID() + "@example.com"), JsonNode.class);
         assertThat(coach.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(coach.getBody()).isNotNull();
         var response = http.postForEntity("/api/sessions", Map.of("coachId", coach.getBody().path("id").asText(),
@@ -306,7 +307,8 @@ class RegistrationLifecycleIT {
     }
 
     private JsonNode createParticipant() {
-        var response = http.postForEntity("/api/participants", Map.of("name", "Sam", "email", "sam@example.com"), JsonNode.class);
+        var response = http.postForEntity("/api/participants",
+                Map.of("name", "Sam", "email", "sam-" + UUID.randomUUID() + "@example.com"), JsonNode.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
         return response.getBody();

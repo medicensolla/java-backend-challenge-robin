@@ -85,8 +85,8 @@ All request/response bodies are JSON. Creation endpoints return the resource's g
 
 | Method | Route | Success | Main errors |
 | --- | --- | --- | --- |
-| POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
-| POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST` |
+| POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_COACH` |
+| POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_PARTICIPANT` |
 | POST | `/api/sessions` | `201` `{id,coachId,startTime,endTime,capacity,location}` | `400 INVALID_REQUEST`, `404 COACH_NOT_FOUND`, `409 COACH_OVERLAP` |
 | GET | `/api/sessions?coachId=…&from=…&to=…` | `200` session page | `400 INVALID_REQUEST` |
 | POST | `/api/sessions/{sessionId}/registrations` | `201` `{id,sessionId,participantId}` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / PARTICIPANT_NOT_FOUND`, `409 DUPLICATE_REGISTRATION / SESSION_FULL` |
@@ -264,7 +264,7 @@ curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
 - Session intervals are half-open `[startTime, endTime)`: adjacent sessions are allowed; overlapping sessions for the same coach are rejected. Different coaches can teach simultaneously. Application scheduling locks the coach row through commit, including when its schedule is empty.
 - Inputs require ISO-8601 timestamps with `Z` or an explicit offset such as `-04:00`. Values are truncated, not rounded, to PostgreSQL microseconds before validation and comparisons. Responses use UTC `Z`; the original timezone is not retained. `startTime` must remain strictly before `endTime` after truncation. Numeric timestamps and offset-free timestamps are invalid.
 - Session filters combine with AND and select interval intersections: `endTime > from` and `startTime < to`. Either bound may be omitted; when both are provided, `from < to` is required after truncation. An unknown coach returns empty content and zero totals. Sessions sort by start time then UUID; registered participants sort by participant UUID. Existing empty sessions return empty participant content and zero totals; missing sessions return `404`.
-- Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Emails are not unique. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
+- Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Names and emails individually are not unique. Creating an existing name/email combination returns `409 DUPLICATE_COACH` or `409 DUPLICATE_PARTICIPANT`, checked separately within each role. Comparison ignores case, collapses the six ASCII whitespace characters in names and trims surrounding ASCII whitespace from emails; accents remain significant. The same combination may exist as both a coach and a participant. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
 - Input validation precedes resource checks. Registration locks the session row, then checks participant, duplicate and capacity, in that order. A duplicate takes precedence over a full session. The database UNIQUE constraint also prevents duplicate pairs under concurrent writes.
 - Cancellation removes only the addressed session/registration relationship. A registration belonging to another session, missing registration or repeated cancellation returns `404 REGISTRATION_NOT_FOUND`; session existence is checked first. Deletion rejects a session with registrations; its foreign key also protects against orphan registrations. These operations do not delete people.
 
@@ -283,6 +283,8 @@ Malformed JSON (including invalid UUIDs or timestamps in JSON bodies) uses `400 
 Unexpected failures return a `500` problem with `code: INTERNAL_ERROR` and `detail: An unexpected error occurred.` Internal exception details are logged only on the server. Framework errors preserve their HTTP status and headers, including `Allow` for 405 responses. Errors outside Spring MVC are not customized.
 
 ## Limits and possible improvements
+
+People creation checks the name/email combination in the Java service before saving. This is an additional project decision; the challenge does not require this uniqueness rule. Existing duplicate rows remain intact. There is no database UNIQUE constraint or new lock for this combination, so simultaneous requests can both pass the check and create duplicates. Direct database writes also bypass this check. The existing validation rules still apply before lookup; an invalid email is rejected rather than normalized into a valid one.
 
 Registration creation holds a pessimistic write lock on the session row until its transaction commits or rolls back. Under PostgreSQL READ COMMITTED, the next registration checks capacity after the previous transaction completes. Two distinct participants competing for the last slot receive one `201` and one `409 SESSION_FULL`; concurrent requests for the same participant receive one `201` and one `409 DUPLICATE_REGISTRATION`. Sessions lock independently, including across application instances sharing the database. The existing UNIQUE constraint remains a second defense against duplicate pairs.
 
