@@ -12,7 +12,8 @@ import jakarta.validation.constraints.Positive;
 
 @Schema(description = "A half-open interval [startTime, endTime). Start must precede end at microsecond precision; past sessions are allowed.")
 public record CreateSessionRequest(
-        @NotNull(message = "must not be null") UUID coachId,
+        @NotNull(message = "must not be null")
+        @Schema(example = "11111111-1111-4111-8111-111111111111") UUID coachId,
         @NotNull(message = "must not be null")
         @JsonDeserialize(using = OffsetInstantDeserializer.class)
         @Schema(type = "string", format = "date-time", example = "2026-10-05T10:00:00-04:00",
@@ -22,6 +23,8 @@ public record CreateSessionRequest(
         @Schema(type = "string", format = "date-time", example = "2026-10-05T11:00:00-04:00",
                 description = "ISO-8601 with explicit offset; stored at microsecond precision.") Instant endTime,
         @NotNull(message = "must not be null")
-        @Positive(message = "must be greater than zero") Integer capacity,
-        @NotBlank(message = "must not be blank") String location) {
+        @Positive(message = "must be greater than zero")
+        @Schema(example = "2") Integer capacity,
+        @NotBlank(message = "must not be blank")
+        @Schema(example = "Court A") String location) {
 }
