@@ -38,7 +38,7 @@ public class RegistrationController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createRegistration", summary = "Register a participant",
             description = "Check session, participant, duplicate registration and capacity in that order. "
-                    + "Duplicate takes precedence over full capacity. Concurrent capacity protection is not included.")
+                    + "Duplicate takes precedence over full capacity. Registrations are serialized per session through transaction commit to prevent overbooking.")
     @ApiResponse(responseCode = "201", description = "Registration created")
     @ApiResponse(responseCode = "400", description = "Invalid request",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))

@@ -26,7 +26,7 @@ public class RegistrationService {
 
     @Transactional
     public RegistrationResponse create(UUID sessionId, CreateRegistrationRequest request) {
-        var session = sessions.findById(sessionId)
+        var session = sessions.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session was not found."));
         var participant = participants.findById(request.participantId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PARTICIPANT_NOT_FOUND", "Participant was not found."));
