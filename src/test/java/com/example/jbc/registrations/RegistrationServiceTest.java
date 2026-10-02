@@ -56,7 +56,7 @@ class RegistrationServiceTest {
 
     @Test
     void missingSessionTakesPrecedenceOverParticipantLookup() {
-        when(sessions.findById(SESSION_ID)).thenReturn(Optional.empty());
+        when(sessions.findByIdForUpdate(SESSION_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(SESSION_ID, REQUEST))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -68,7 +68,7 @@ class RegistrationServiceTest {
 
     @Test
     void missingParticipantTakesPrecedenceOverDuplicateAndCapacityChecks() {
-        when(sessions.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(sessions.findByIdForUpdate(SESSION_ID)).thenReturn(Optional.of(session));
         when(participants.findById(PARTICIPANT_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(SESSION_ID, REQUEST))
@@ -117,7 +117,7 @@ class RegistrationServiceTest {
         var response = service.create(SESSION_ID, REQUEST);
 
         var order = inOrder(sessions, participants, registrations);
-        order.verify(sessions).findById(SESSION_ID);
+        order.verify(sessions).findByIdForUpdate(SESSION_ID);
         order.verify(participants).findById(PARTICIPANT_ID);
         order.verify(registrations).existsBySessionIdAndParticipantId(SESSION_ID, PARTICIPANT_ID);
         order.verify(registrations).countBySessionId(SESSION_ID);
@@ -168,7 +168,7 @@ class RegistrationServiceTest {
     }
 
     private void existingReferences() {
-        when(sessions.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(sessions.findByIdForUpdate(SESSION_ID)).thenReturn(Optional.of(session));
         when(participants.findById(PARTICIPANT_ID)).thenReturn(Optional.of(participant));
     }
 

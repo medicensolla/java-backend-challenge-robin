@@ -1,10 +1,17 @@
 package com.example.jbc.registrations;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.example.jbc.sessions.SessionRepository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -26,6 +33,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.doReturn;
 
 @Testcontainers
@@ -40,6 +48,11 @@ class RegistrationCreationIT {
     private TestRestTemplate http;
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private SessionRepository sessions;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @MockitoSpyBean
     private RegistrationRepository registrations;
@@ -161,6 +174,90 @@ class RegistrationCreationIT {
                 .containsExactlyInAnyOrder("201", "400", "404", "409", "500");
         assertThat(operation.path("responses").path("201").path("content").path("application/json")
                 .path("schema").path("$ref").asText()).isEqualTo("#/components/schemas/RegistrationResponse");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3})
+    void concurrentParticipantsCannotOverbookTheLastSlot(int capacity) throws Exception {
+        var sessionId = createSession(capacity);
+        for (int i = 1; i < capacity; i++) {
+            assertThat(register(sessionId, createParticipant()).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        }
+        assertConcurrentRegistrations(sessionId, createParticipant(), createParticipant(), "SESSION_FULL",
+                "Session has reached its capacity.");
+        assertThat(count(sessionId)).isEqualTo(capacity);
+    }
+
+    @Test
+    void concurrentDuplicateRetainsPrecedenceOverFullCapacity() throws Exception {
+        var sessionId = createSession(1);
+        var participantId = createParticipant();
+        assertConcurrentRegistrations(sessionId, participantId, participantId, "DUPLICATE_REGISTRATION",
+                "Participant is already registered for this session.");
+        assertThat(count(sessionId)).isEqualTo(1);
+    }
+
+    private void assertConcurrentRegistrations(UUID sessionId, UUID firstParticipant, UUID secondParticipant,
+                                               String conflictCode, String detail) throws Exception {
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var requests = new TransactionTemplate(transactionManager).execute(status -> {
+                sessions.findByIdForUpdate(sessionId).orElseThrow();
+                var first = executor.submit(() -> register(sessionId, firstParticipant));
+                var second = executor.submit(() -> register(sessionId, secondParticipant));
+                awaitSessionWaiters(2);
+                return List.of(first, second);
+            });
+            assertThat(requests).isNotNull();
+            var responses = List.of(requests.get(0).get(10, TimeUnit.SECONDS), requests.get(1).get(10, TimeUnit.SECONDS));
+            assertThat(responses).extracting(ResponseEntity::getStatusCode)
+                    .containsExactlyInAnyOrder(HttpStatus.CREATED, HttpStatus.CONFLICT);
+            var conflict = responses.stream().filter(response -> response.getStatusCode().equals(HttpStatus.CONFLICT))
+                    .findFirst().orElseThrow();
+            assertError(conflict, HttpStatus.CONFLICT, conflictCode, detail);
+            assertThat(conflict.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+            var created = responses.stream().filter(response -> response.getStatusCode().equals(HttpStatus.CREATED))
+                    .findFirst().orElseThrow().getBody();
+            assertThat(created).isNotNull();
+            assertThat(jdbc.queryForObject("SELECT participant_id FROM registrations WHERE id = ?", UUID.class,
+                    UUID.fromString(created.path("id").asText())))
+                    .isEqualTo(UUID.fromString(created.path("participantId").asText()));
+        }
+    }
+
+    @Test
+    void lockingOneSessionDoesNotBlockRegistrationInAnother() throws Exception {
+        var blockedSession = createSession(1);
+        var otherSession = createSession(1);
+        var participant = createParticipant();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var blocked = new TransactionTemplate(transactionManager).execute(status -> {
+                sessions.findByIdForUpdate(blockedSession).orElseThrow();
+                var pending = executor.submit(() -> register(blockedSession, participant));
+                awaitSessionWaiters(1);
+                var independent = executor.submit(() -> register(otherSession, participant));
+                try {
+                    assertThat(independent.get(10, TimeUnit.SECONDS).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+                } catch (Exception exception) {
+                    throw new AssertionError("Registration in another session must complete while the lock is held", exception);
+                }
+                assertThat(pending.isDone()).isFalse();
+                return pending;
+            });
+            assertThat(blocked).isNotNull();
+            assertThat(blocked.get(10, TimeUnit.SECONDS).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(count(blockedSession)).isEqualTo(1);
+            assertThat(count(otherSession)).isEqualTo(1);
+        }
+    }
+
+    private void awaitSessionWaiters(int expected) {
+        // The holder transaction is released on either success or assertion failure.
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject("""
+                        SELECT count(*) FROM pg_stat_activity
+                        WHERE datname = current_database() AND wait_event_type = 'Lock'
+                          AND query ILIKE '%from sessions%' AND query ILIKE '%for%update%'
+                        """, Integer.class)).isEqualTo(expected));
     }
 
     private UUID createSession(int capacity) {

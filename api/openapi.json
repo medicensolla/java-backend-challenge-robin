@@ -672,7 +672,7 @@
         "tags": [
           "Registrations"
         ],
-        "description": "Validate input, then check session existence, participant existence, duplicate and capacity in one transaction. Duplicate takes precedence over full. The last available slot succeeds. Flush the insert before returning the generated registration ID; translate only a violation of uq_registrations_session_participant to DUPLICATE_REGISTRATION. Other unexpected persistence failures remain sanitized INTERNAL_ERROR responses. Transactional baseline capacity checking does not guarantee capacity under concurrent requests; optional JBC-017 adds that guarantee.",
+        "description": "Validate input, then lock the session row, then check participant existence, duplicate and capacity in one transaction. Duplicate takes precedence over full. The last available slot succeeds. Flush the insert before returning the generated registration ID; translate only a violation of uq_registrations_session_participant to DUPLICATE_REGISTRATION. Other unexpected persistence failures remain sanitized INTERNAL_ERROR responses. Hold the session lock through commit or rollback to prevent concurrent overbooking under READ COMMITTED. Different sessions lock independently. Concurrent last-slot requests return one 201 and one 409 SESSION_FULL; duplicate requests retain DUPLICATE_REGISTRATION precedence.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -1600,13 +1600,13 @@
       "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
     },
     "optionalNotSelected": {
-      "JBC-017": "Concurrent registration capacity guarantee",
       "JBC-018": "10x/100x scaling notes"
     },
     "optionalSelected": {
       "JBC-014": "Maven CI checks included early in JBC-006; runs on PRs to main and main pushes. Merge enforcement is configured separately in GitHub.",
       "JBC-015": "Pagination on sessions and registered participants with bounded page sizes and totals",
-      "JBC-016": "RFC 9457 errors using ProblemDetail with stable code and optional fieldErrors extensions"
+      "JBC-016": "RFC 9457 errors using ProblemDetail with stable code and optional fieldErrors extensions",
+      "JBC-017": "Per-session pessimistic locking prevents concurrent registration overbooking; PostgreSQL HTTP concurrency tests verify last-slot and duplicate races and independent sessions."
     }
   },
   "x-decisions": {
@@ -1635,7 +1635,7 @@
     "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it.",
     "schedulingConcurrency": "Within one transaction, lock the coach row with PESSIMISTIC_WRITE before checking existing.start < proposed.end AND existing.end > proposed.start and inserting the session. The lock also covers empty schedules and is held through commit. Every session creation uses this path; direct database writes bypass this application guarantee. Different coaches lock different rows.",
     "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; paginated content with totals. One content query fetches sessions and coaches, with a count query when needed; no resource-existence lookup is needed.",
-    "registrationCreation": "One transaction checks session, participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The existing V2 unique constraint prevents duplicate pairs, while baseline count/check/insert does not prevent concurrent capacity overflow. Concurrent capacity protection remains optional JBC-017; no new locks or migration in JBC-009.",
+    "registrationCreation": "One transaction locks the session row with PESSIMISTIC_WRITE, checks participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The lock is retained through commit or rollback, serializing registration creation per session under PostgreSQL READ COMMITTED, including across application instances. Different sessions lock independently. The V2 unique constraint still prevents duplicate pairs. Direct SQL writes bypass the application capacity guarantee; a concurrent cancellation may free capacity after a SESSION_FULL response. No schema change is needed.",
     "registrationLifecycle": "Participant listing returns id/name/email/registrationId ordered by participant UUID, in paginated content with totals, with empty content for existing empty sessions and 404 for missing sessions. Fetch participants with registrations. Cancellation checks session first and atomically deletes only the matching session/registration pair; zero affected rows mean REGISTRATION_NOT_FOUND. Repeated cancellation is 404; capacity is freed and reinscription generates a new ID. Session deletion checks existence then registrations, rejects nonempty sessions with SESSION_HAS_REGISTRATIONS, and deletes by ID with row-count checking. Only fk_registrations_session violations are mapped to that conflict. Preserve coaches, participants and all unrelated registrations. No cascading deletion, migration or concurrency capacity change.",
     "pagination": "Both listing endpoints accept page (default 0, minimum 0) and size (default 20, range 1–100). Empty values use defaults. Return {content,page,size,totalElements,totalPages}; retain fixed ordering and filter before pagination/counting. Invalid values return 400 before existence checks. Out-of-range pages retain totals with empty content. This replaces the baseline array responses."
   }
