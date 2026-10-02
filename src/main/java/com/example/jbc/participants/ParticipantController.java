@@ -1,6 +1,6 @@
 package com.example.jbc.participants;
 
-import com.example.jbc.common.ApiError;
+import com.example.jbc.common.ApiProblemSchema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -29,9 +29,9 @@ public class ParticipantController {
     @Operation(operationId = "createParticipant", summary = "Create a participant")
     @ApiResponse(responseCode = "201", description = "Resource created")
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "400", description = "Invalid request",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public ParticipantResponse create(@Valid @RequestBody CreateParticipantRequest request) {
         return service.create(request);
     }

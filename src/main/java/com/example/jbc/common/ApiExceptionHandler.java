@@ -1,13 +1,16 @@
 package com.example.jbc.common;
 
+import java.net.URI;
 import java.util.Comparator;
-import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.MediaType;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,12 +27,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             MethodArgumentNotValidException exception, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
         var violations = exception.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ApiError.FieldViolation(error.getField(), error.getDefaultMessage()))
+                .map(error -> new FieldViolation(error.getField(), error.getDefaultMessage()))
                 .distinct()
-                .sorted(Comparator.comparing(ApiError.FieldViolation::field)
-                        .thenComparing(ApiError.FieldViolation::message))
+                .sorted(Comparator.comparing(FieldViolation::field)
+                        .thenComparing(FieldViolation::message))
                 .toList();
-        var body = new ApiError("INVALID_REQUEST", "Request contains invalid fields.", violations);
+        var body = problem(status, "INVALID_REQUEST", "Request contains invalid fields.", request);
+        if (!violations.isEmpty()) {
+            body.setProperty("fieldErrors", violations);
+        }
         return handleExceptionInternal(exception, body, headers, status, request);
     }
 
@@ -37,7 +43,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException exception, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
-        var body = new ApiError("INVALID_REQUEST", "Request body must contain valid JSON.", List.of());
+        var body = problem(status, "INVALID_REQUEST", "Request body must contain valid JSON.", request);
         return handleExceptionInternal(exception, body, headers, status, request);
     }
 
@@ -45,24 +51,37 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception exception, Object body, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
-        if (!(body instanceof ApiError)) {
-            body = status.is5xxServerError()
-                    ? new ApiError("INTERNAL_ERROR", "An unexpected error occurred.", List.of())
-                    : new ApiError("INVALID_REQUEST", HttpStatus.valueOf(status.value()).getReasonPhrase(), List.of());
+        if (!(body instanceof ProblemDetail problem) || problem.getProperties() == null
+                || !problem.getProperties().containsKey("code")) {
+            body = problem(status, status.is5xxServerError() ? "INTERNAL_ERROR" : "INVALID_REQUEST",
+                    status.is5xxServerError() ? "An unexpected error occurred."
+                            : HttpStatus.valueOf(status.value()).getReasonPhrase(), request);
         }
-        return super.handleExceptionInternal(exception, body, headers, status, request);
+        var responseHeaders = new HttpHeaders();
+        responseHeaders.putAll(headers);
+        responseHeaders.setContentType(MediaType.APPLICATION_PROBLEM_JSON);
+        return super.handleExceptionInternal(exception, body, responseHeaders, status, request);
     }
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiError> handleApiException(ApiException exception) {
-        return ResponseEntity.status(exception.getStatus())
-                .body(new ApiError(exception.getCode(), exception.getMessage(), List.of()));
+    public ResponseEntity<ProblemDetail> handleApiException(ApiException exception, WebRequest request) {
+        return ResponseEntity.status(exception.getStatus()).contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem(exception.getStatus(), exception.getCode(), exception.getMessage(), request));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleUnexpectedException(Exception exception) {
+    public ResponseEntity<ProblemDetail> handleUnexpectedException(Exception exception, WebRequest request) {
         log.error("Unhandled request failure", exception);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiError("INTERNAL_ERROR", "An unexpected error occurred.", List.of()));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred.", request));
+    }
+
+    private ProblemDetail problem(HttpStatusCode status, String code, String detail, WebRequest request) {
+        var body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setType(URI.create("about:blank"));
+        body.setTitle(HttpStatus.valueOf(status.value()).getReasonPhrase());
+        body.setInstance(URI.create(((ServletWebRequest) request).getRequest().getRequestURI()));
+        body.setProperty("code", code);
+        return body;
     }
 }

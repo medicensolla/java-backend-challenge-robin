@@ -53,15 +53,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidFields": {
                     "value": {
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request contains invalid fields.",
+                      "instance": "/api/coaches",
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains invalid fields.",
                       "fieldErrors": [
                         {
                           "field": "email",
@@ -72,8 +76,12 @@
                   },
                   "malformedJson": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Request body must contain valid JSON."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request body must contain valid JSON.",
+                      "instance": "/api/coaches",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -83,15 +91,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/coaches",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -142,15 +154,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidFields": {
                     "value": {
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request contains invalid fields.",
+                      "instance": "/api/participants",
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains invalid fields.",
                       "fieldErrors": [
                         {
                           "field": "email",
@@ -161,8 +177,12 @@
                   },
                   "malformedJson": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Request body must contain valid JSON."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request body must contain valid JSON.",
+                      "instance": "/api/participants",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -172,15 +192,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/participants",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -234,15 +258,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidFields": {
                     "value": {
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request contains invalid fields.",
+                      "instance": "/api/sessions",
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains invalid fields.",
                       "fieldErrors": [
                         {
                           "field": "capacity",
@@ -253,14 +281,22 @@
                   },
                   "invalidWindow": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "startTime must be before endTime at microsecond precision."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "startTime must be before endTime at microsecond precision.",
+                      "instance": "/api/sessions",
+                      "code": "INVALID_REQUEST"
                     }
                   },
                   "malformedJsonOrTimestamp": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Request body must contain valid JSON."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request body must contain valid JSON.",
+                      "instance": "/api/sessions",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -270,15 +306,19 @@
           "404": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "COACH_NOT_FOUND": {
                     "value": {
-                      "code": "COACH_NOT_FOUND",
-                      "message": "Coach was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Coach was not found.",
+                      "instance": "/api/sessions",
+                      "code": "COACH_NOT_FOUND"
                     }
                   }
                 }
@@ -288,15 +328,19 @@
           "409": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "COACH_OVERLAP": {
                     "value": {
-                      "code": "COACH_OVERLAP",
-                      "message": "Coach already has a session overlapping this interval."
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Coach already has a session overlapping this interval.",
+                      "instance": "/api/sessions",
+                      "code": "COACH_OVERLAP"
                     }
                   }
                 }
@@ -306,15 +350,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -377,21 +425,29 @@
           "400": {
             "description": "Invalid filters, identifiers or pagination parameters.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidFilter": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Bad Request"
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Bad Request",
+                      "instance": "/api/sessions",
+                      "code": "INVALID_REQUEST"
                     }
                   },
                   "invalidRange": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "from must be before to at microsecond precision."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "from must be before to at microsecond precision.",
+                      "instance": "/api/sessions",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -401,15 +457,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -506,15 +566,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidUuid": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Bad Request"
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Bad Request",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -524,15 +588,19 @@
           "404": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "SESSION_NOT_FOUND": {
                     "value": {
-                      "code": "SESSION_NOT_FOUND",
-                      "message": "Session was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Session was not found.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111",
+                      "code": "SESSION_NOT_FOUND"
                     }
                   }
                 }
@@ -542,15 +610,19 @@
           "409": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "SESSION_HAS_REGISTRATIONS": {
                     "value": {
-                      "code": "SESSION_HAS_REGISTRATIONS",
-                      "message": "Cancel all registrations before deleting this session."
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Cancel all registrations before deleting this session.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111",
+                      "code": "SESSION_HAS_REGISTRATIONS"
                     }
                   }
                 }
@@ -560,15 +632,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -616,15 +692,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "missingParticipant": {
                     "value": {
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request contains invalid fields.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains invalid fields.",
                       "fieldErrors": [
                         {
                           "field": "participantId",
@@ -635,14 +715,22 @@
                   },
                   "malformedJsonOrParticipantUuid": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Request body must contain valid JSON."
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Request body must contain valid JSON.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "INVALID_REQUEST"
                     }
                   },
                   "invalidSessionUuid": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Bad Request"
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Bad Request",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -652,21 +740,29 @@
           "404": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "SESSION_NOT_FOUND": {
                     "value": {
-                      "code": "SESSION_NOT_FOUND",
-                      "message": "Session was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Session was not found.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "SESSION_NOT_FOUND"
                     }
                   },
                   "PARTICIPANT_NOT_FOUND": {
                     "value": {
-                      "code": "PARTICIPANT_NOT_FOUND",
-                      "message": "Participant was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Participant was not found.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "PARTICIPANT_NOT_FOUND"
                     }
                   }
                 }
@@ -676,21 +772,29 @@
           "409": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "DUPLICATE_REGISTRATION": {
                     "value": {
-                      "code": "DUPLICATE_REGISTRATION",
-                      "message": "Participant is already registered for this session."
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Participant is already registered for this session.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "DUPLICATE_REGISTRATION"
                     }
                   },
                   "SESSION_FULL": {
                     "value": {
-                      "code": "SESSION_FULL",
-                      "message": "Session has reached its capacity."
+                      "type": "about:blank",
+                      "title": "Conflict",
+                      "status": 409,
+                      "detail": "Session has reached its capacity.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "SESSION_FULL"
                     }
                   }
                 }
@@ -700,15 +804,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -778,15 +886,19 @@
           "400": {
             "description": "Invalid filters, identifiers or pagination parameters.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidUuid": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Bad Request"
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Bad Request",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/participants",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -796,15 +908,19 @@
           "404": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "SESSION_NOT_FOUND": {
                     "value": {
-                      "code": "SESSION_NOT_FOUND",
-                      "message": "Session was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Session was not found.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/participants",
+                      "code": "SESSION_NOT_FOUND"
                     }
                   }
                 }
@@ -814,15 +930,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/participants",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -894,15 +1014,19 @@
           "400": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "invalidUuid": {
                     "value": {
-                      "code": "INVALID_REQUEST",
-                      "message": "Bad Request"
+                      "type": "about:blank",
+                      "title": "Bad Request",
+                      "status": 400,
+                      "detail": "Bad Request",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations/11111111-1111-4111-8111-111111111111",
+                      "code": "INVALID_REQUEST"
                     }
                   }
                 }
@@ -912,21 +1036,29 @@
           "404": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "SESSION_NOT_FOUND": {
                     "value": {
-                      "code": "SESSION_NOT_FOUND",
-                      "message": "Session was not found."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Session was not found.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations/11111111-1111-4111-8111-111111111111",
+                      "code": "SESSION_NOT_FOUND"
                     }
                   },
                   "REGISTRATION_NOT_FOUND": {
                     "value": {
-                      "code": "REGISTRATION_NOT_FOUND",
-                      "message": "Registration was not found under this session."
+                      "type": "about:blank",
+                      "title": "Not Found",
+                      "status": 404,
+                      "detail": "Registration was not found under this session.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations/11111111-1111-4111-8111-111111111111",
+                      "code": "REGISTRATION_NOT_FOUND"
                     }
                   }
                 }
@@ -936,15 +1068,19 @@
           "500": {
             "description": "See error codes and examples.",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/ApiProblem"
                 },
                 "examples": {
                   "INTERNAL_ERROR": {
                     "value": {
-                      "code": "INTERNAL_ERROR",
-                      "message": "An unexpected error occurred."
+                      "type": "about:blank",
+                      "title": "Internal Server Error",
+                      "status": 500,
+                      "detail": "An unexpected error occurred.",
+                      "instance": "/api/sessions/11111111-1111-4111-8111-111111111111/registrations/11111111-1111-4111-8111-111111111111",
+                      "code": "INTERNAL_ERROR"
                     }
                   }
                 }
@@ -1179,53 +1315,6 @@
           }
         }
       },
-      "Error": {
-        "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "enum": [
-              "INVALID_REQUEST",
-              "COACH_NOT_FOUND",
-              "PARTICIPANT_NOT_FOUND",
-              "SESSION_NOT_FOUND",
-              "REGISTRATION_NOT_FOUND",
-              "COACH_OVERLAP",
-              "DUPLICATE_REGISTRATION",
-              "SESSION_FULL",
-              "SESSION_HAS_REGISTRATIONS",
-              "INTERNAL_ERROR"
-            ],
-            "example": "INVALID_REQUEST"
-          },
-          "message": {
-            "type": "string",
-            "example": "Bad Request"
-          },
-          "fieldErrors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": [
-                "field",
-                "message"
-              ],
-              "properties": {
-                "field": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      },
       "Session": {
         "type": "object",
         "required": [
@@ -1353,6 +1442,77 @@
             "minimum": 0
           }
         }
+      },
+      "ApiProblem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri",
+            "example": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 400
+          },
+          "detail": {
+            "type": "string",
+            "example": "Request contains invalid fields."
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri-reference",
+            "example": "/api/coaches"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "INVALID_REQUEST",
+              "COACH_NOT_FOUND",
+              "PARTICIPANT_NOT_FOUND",
+              "SESSION_NOT_FOUND",
+              "REGISTRATION_NOT_FOUND",
+              "COACH_OVERLAP",
+              "DUPLICATE_REGISTRATION",
+              "SESSION_FULL",
+              "SESSION_HAS_REGISTRATIONS",
+              "INTERNAL_ERROR"
+            ],
+            "example": "INVALID_REQUEST"
+          },
+          "fieldErrors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Present only for body field validation failures; sorted, deduplicated and omitted when empty."
+          }
+        }
       }
     }
   },
@@ -1440,13 +1600,13 @@
       "JBC-019": "Clean Compose startup, restart, full tests, immutable migration history and final submission verification"
     },
     "optionalNotSelected": {
-      "JBC-016": "RFC 9457 errors",
       "JBC-017": "Concurrent registration capacity guarantee",
       "JBC-018": "10x/100x scaling notes"
     },
     "optionalSelected": {
       "JBC-014": "Maven CI checks included early in JBC-006; runs on PRs to main and main pushes. Merge enforcement is configured separately in GitHub.",
-      "JBC-015": "Pagination on sessions and registered participants with bounded page sizes and totals"
+      "JBC-015": "Pagination on sessions and registered participants with bounded page sizes and totals",
+      "JBC-016": "RFC 9457 errors using ProblemDetail with stable code and optional fieldErrors extensions"
     }
   },
   "x-decisions": {
@@ -1459,7 +1619,7 @@
     "publicCoachName": "Keep the name API field through internal first_name/last_name expansion.",
     "nameSplit": "For coaches, normalize ASCII whitespace identically in Java and SQL (space, tab, LF, VT, FF, CR), trim surrounding spaces, first word -> first_name, remainder -> last_name; a single word has empty last_name. Keep the public name API field, recomposed from split fields. Names are normalized at creation, legacy writes and backfill. This is a pragmatic, culturally imperfect policy; participants are unchanged.",
     "migrationCompatibility": "V3 retains legacy name, backfills canonical names and first_name/last_name without changing IDs, emails or relations, then requires non-null split fields. A BEFORE INSERT OR UPDATE trigger handles legacy-only and split-only writes. Detect actual UPDATE changes with IS DISTINCT FROM; if both representations are supplied/changed, require equality after normalization or reject with SQLSTATE 23514. Split writers provide both fields, including empty last_name for single names; nulls remain invalid. Canonicalize the composed full name and split by first word. Email-only updates leave names untouched. Old readers continue using name; new JPA maps only split fields. Keep V3 when rolling back the application. Defer dropping name/compatibility triggers until old versions and rollback dependencies retire. V1/V2 remain immutable.",
-    "errors": "Stable code and readable message; optional fieldErrors; never disclose stack traces. Generic 500 for unexpected errors.",
+    "errors": "Spring MVC errors use application/problem+json with type=about:blank, standard HTTP title, matching status, safe detail, request-path instance without query, stable code and optional sorted/deduplicated fieldErrors for body validation. Top-level message is removed; fieldErrors retains {field,message}. Unexpected 500 errors are generic; internal details stay in server logs.",
     "documentation": "Version README.md at the repository root and documentation/ADR-001-coach-name-expansion.md as the reviewer guide and migration ADR. Keep all docs/ contents, including working memories and ticket notes, ignored.",
     "git": "Branch exactly ticket ID; Conventional Commits include ticket ID. Commit locally only; owner performs push. No PR creation or remote operations in JBC-001.",
     "outOfScope": [

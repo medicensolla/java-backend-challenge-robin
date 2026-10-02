@@ -160,7 +160,7 @@ class ApplicationIT {
         var body = response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.path("code").asText()).isEqualTo("INVALID_REQUEST");
-        assertThat(body.path("message").asText()).isNotBlank();
+        assertThat(body.path("detail").asText()).isNotBlank();
         assertThat(body.path("fieldErrors").findValuesAsText("field")).contains(field);
         assertThat(body.has("trace")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table, Long.class)).isEqualTo(countBefore);
@@ -178,8 +178,59 @@ class ApplicationIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
-        assertThat(response.getBody().path("message").asText()).isEqualTo("Request body must contain valid JSON.");
-        assertThat(response.getBody().size()).isEqualTo(2);
+        assertThat(response.getBody().path("detail").asText()).isEqualTo("Request body must contain valid JSON.");
+        assertThat(response.getBody().size()).isEqualTo(6);
+    }
+
+    @Test
+    void mvcErrorsUseProblemDetailsAndPreserveFrameworkHeaders() {
+        var missing = http.getForEntity("/api/no-such-route?secret=hidden", JsonNode.class);
+        assertProblem(missing, HttpStatus.NOT_FOUND, "/api/no-such-route");
+        var method = http.getForEntity("/api/coaches", JsonNode.class);
+        assertProblem(method, HttpStatus.METHOD_NOT_ALLOWED, "/api/coaches");
+        assertThat(method.getHeaders().getAllow()).contains(org.springframework.http.HttpMethod.POST);
+        var headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        var unsupported = http.postForEntity("/api/coaches", new HttpEntity<>("private input", headers), JsonNode.class);
+        assertProblem(unsupported, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "/api/coaches");
+        var invalid = http.getForEntity("/api/sessions?page=-1&secret=hidden", JsonNode.class);
+        assertProblem(invalid, HttpStatus.BAD_REQUEST, "/api/sessions");
+    }
+
+    @Test
+    void bodyValidationKeepsSortedUniqueFieldErrorsAndSwaggerDocumentsExtensions() {
+        var response = http.postForEntity("/api/coaches", Map.of("name", "", "email", ""), JsonNode.class);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        var body = response.getBody();
+        assertThat(body.path("status").asInt()).isEqualTo(400);
+        assertThat(body.path("instance").asText()).isEqualTo("/api/coaches");
+        assertThat(body.path("fieldErrors").findValuesAsText("field")).containsExactly("email", "name");
+        body.path("fieldErrors").forEach(error -> {
+            assertThat(error.fieldNames()).toIterable().containsExactlyInAnyOrder("field", "message");
+            assertThat(error.path("message").asText()).isNotBlank();
+        });
+        assertThat(body.has("message")).isFalse();
+        var docs = http.getForEntity("/v3/api-docs", JsonNode.class).getBody();
+        var content = docs.path("paths").path("/api/coaches").path("post")
+                .path("responses").path("400").path("content");
+        assertThat(content.fieldNames()).toIterable().containsExactly("application/problem+json");
+        assertThat(content.path("application/problem+json").path("schema").path("$ref").asText())
+                .isEqualTo("#/components/schemas/ApiProblem");
+        assertThat(docs.path("components").path("schemas").path("ApiProblem").path("properties").fieldNames())
+                .toIterable().containsExactlyInAnyOrder("type", "title", "status", "detail", "instance", "code", "fieldErrors");
+    }
+
+    private void assertProblem(org.springframework.http.ResponseEntity<JsonNode> response, HttpStatus status, String path) {
+        assertThat(response.getStatusCode()).isEqualTo(status);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        var body = response.getBody();
+        assertThat(body.fieldNames()).toIterable().containsExactlyInAnyOrder("type", "title", "status", "detail", "instance", "code");
+        assertThat(body.path("type").asText()).isEqualTo("about:blank");
+        assertThat(body.path("title").asText()).isEqualTo(status.getReasonPhrase());
+        assertThat(body.path("status").asInt()).isEqualTo(status.value());
+        assertThat(body.path("detail").asText()).isEqualTo(status.getReasonPhrase());
+        assertThat(body.path("instance").asText()).isEqualTo(path);
+        assertThat(body.path("code").asText()).isEqualTo("INVALID_REQUEST");
     }
 
     private static Stream<Arguments> invalidPeople() {

@@ -2,7 +2,7 @@ package com.example.jbc.registrations;
 
 import java.util.UUID;
 
-import com.example.jbc.common.ApiError;
+import com.example.jbc.common.ApiProblemSchema;
 import com.example.jbc.common.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,13 +41,13 @@ public class RegistrationController {
                     + "Duplicate takes precedence over full capacity. Concurrent capacity protection is not included.")
     @ApiResponse(responseCode = "201", description = "Registration created")
     @ApiResponse(responseCode = "400", description = "Invalid request",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "404", description = "Session or participant was not found",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "409", description = "Duplicate registration or full session",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public RegistrationResponse create(@PathVariable UUID sessionId, @Valid @RequestBody CreateRegistrationRequest request) {
         return service.create(sessionId, request);
     }
@@ -58,11 +58,11 @@ public class RegistrationController {
                     + "Returns a page with totals. An existing empty session returns empty content; a missing session returns 404.")
     @ApiResponse(responseCode = "200", description = "Registered participants")
     @ApiResponse(responseCode = "400", description = "Invalid session UUID or pagination",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "404", description = "Session was not found",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public PageResponse<RegisteredParticipantResponse> listParticipants(@PathVariable UUID sessionId,
             @Parameter(description = "Zero-based page; omitted or empty values use 0.")
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -78,11 +78,11 @@ public class RegistrationController {
                     + "A missing registration or one in another session returns 404. Cancellation frees capacity.")
     @ApiResponse(responseCode = "204", description = "Registration cancelled", content = @Content)
     @ApiResponse(responseCode = "400", description = "Invalid UUID",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "404", description = "Session or registration was not found",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = ApiProblemSchema.class)))
     public void cancel(@PathVariable UUID sessionId, @PathVariable UUID registrationId) {
         service.cancel(sessionId, registrationId);
     }

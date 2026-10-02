@@ -128,7 +128,7 @@ class RegistrationCreationIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
-        assertThat(response.getBody().path("message").asText()).isNotBlank();
+        assertThat(response.getBody().path("detail").asText()).isNotBlank();
         assertThat(response.getBody().has("trace")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM registrations", Long.class)).isEqualTo(before);
     }
@@ -196,8 +196,8 @@ class RegistrationCreationIT {
         assertThat(response.getStatusCode()).isEqualTo(status);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo(code);
-        assertThat(response.getBody().path("message").asText()).isEqualTo(message);
-        assertThat(response.getBody().size()).isEqualTo(2);
+        assertThat(response.getBody().path("detail").asText()).isEqualTo(message);
+        assertThat(response.getBody().size()).isEqualTo(6);
     }
 
     private static Stream<Arguments> invalidRequests() {

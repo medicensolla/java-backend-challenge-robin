@@ -91,8 +91,8 @@ class SessionCreationIT {
         assertThat(response.getBody()).isNotNull();
         if (overlap) {
             assertThat(response.getBody().path("code").asText()).isEqualTo("COACH_OVERLAP");
-            assertThat(response.getBody().path("message").asText()).isEqualTo("Coach already has a session overlapping this interval.");
-            assertThat(response.getBody().size()).isEqualTo(2);
+            assertThat(response.getBody().path("detail").asText()).isEqualTo("Coach already has a session overlapping this interval.");
+            assertThat(response.getBody().size()).isEqualTo(6);
         } else {
             assertThat(UUID.fromString(response.getBody().path("id").asText())).isNotNull();
         }
@@ -116,8 +116,8 @@ class SessionCreationIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo("COACH_NOT_FOUND");
-        assertThat(response.getBody().path("message").asText()).isEqualTo("Coach was not found.");
-        assertThat(response.getBody().size()).isEqualTo(2);
+        assertThat(response.getBody().path("detail").asText()).isEqualTo("Coach was not found.");
+        assertThat(response.getBody().size()).isEqualTo(6);
         assertThat(sessionCount(coachId)).isZero();
     }
 
@@ -133,7 +133,7 @@ class SessionCreationIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().path("code").asText()).isEqualTo("INVALID_REQUEST");
-        assertThat(response.getBody().path("message").asText()).isNotBlank();
+        assertThat(response.getBody().path("detail").asText()).isNotBlank();
         assertThat(response.getBody().has("trace")).isFalse();
         assertThat(sessionCount(coachId)).isZero();
     }
