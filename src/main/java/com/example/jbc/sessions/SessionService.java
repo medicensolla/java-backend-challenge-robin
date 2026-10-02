@@ -8,8 +8,11 @@ import java.util.UUID;
 
 import com.example.jbc.coaches.CoachRepository;
 import com.example.jbc.common.ApiException;
+import com.example.jbc.registrations.RegistrationRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,8 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SessionService {
 
+    private static final String REGISTRATION_SESSION_CONSTRAINT = "fk_registrations_session";
+
     private final CoachRepository coaches;
     private final SessionRepository sessions;
+    private final RegistrationRepository registrations;
 
     @Transactional
     public SessionResponse create(CreateSessionRequest request) {
@@ -65,6 +71,38 @@ public class SessionService {
             return builder.and(predicates.toArray(Predicate[]::new));
         }, Sort.by("startTime", "id"));
         return matches.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public void delete(UUID sessionId) {
+        if (!sessions.existsById(sessionId)) {
+            throw sessionNotFound();
+        }
+        if (registrations.existsBySessionId(sessionId)) {
+            throw sessionHasRegistrations();
+        }
+        try {
+            if (sessions.deleteSessionById(sessionId) == 0) {
+                throw sessionNotFound();
+            }
+        } catch (DataIntegrityViolationException exception) {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof ConstraintViolationException violation
+                        && REGISTRATION_SESSION_CONSTRAINT.equals(violation.getConstraintName())) {
+                    throw sessionHasRegistrations();
+                }
+            }
+            throw exception;
+        }
+    }
+
+    private ApiException sessionNotFound() {
+        return new ApiException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", "Session was not found.");
+    }
+
+    private ApiException sessionHasRegistrations() {
+        return new ApiException(HttpStatus.CONFLICT, "SESSION_HAS_REGISTRATIONS",
+                "Cancel all registrations before deleting this session.");
     }
 
     private SessionResponse toResponse(TrainingSession session) {

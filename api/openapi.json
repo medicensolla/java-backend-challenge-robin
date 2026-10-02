@@ -3,7 +3,7 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. JBC-009 implements registration creation with duplicate and capacity checks. Session deletion, participant listing and registration cancellation remain planned. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
+    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. JBC-009 implements registration creation with duplicate and capacity checks. JBC-010 implements participant listing, registration cancellation and protected session deletion. All required API routes are implemented. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
   },
   "servers": [
     {
@@ -482,7 +482,7 @@
         "tags": [
           "Sessions"
         ],
-        "description": "Check session existence first. Block while any registrations exist; restrictive foreign keys protect against concurrent relationship changes. After cancellation of all registrations, deletion succeeds. Repeated deletion returns 404.",
+        "description": "Check session existence first. Block while any registrations exist with SESSION_HAS_REGISTRATIONS. In one transaction, execute a delete by ID and inspect its affected row count; zero rows return SESSION_NOT_FOUND. Translate only a violation of fk_registrations_session into SESSION_HAS_REGISTRATIONS if a registration appears after the check. After cancellation of all registrations, deletion succeeds. Repeated deletion returns 404. Keep coaches and participants.",
         "responses": {
           "204": {
             "description": "Deleted; no response body."
@@ -495,10 +495,10 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "INVALID_REQUEST": {
+                  "invalidUuid": {
                     "value": {
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains malformed or invalid fields."
+                      "message": "Bad Request"
                     }
                   }
                 }
@@ -733,7 +733,7 @@
         "tags": [
           "Registrations"
         ],
-        "description": "Include participant id and registrationId for discoverable cancellation. Order by participant id. An existing empty session returns []; a missing session returns 404.",
+        "description": "Include participant id, name, email and registrationId for discoverable cancellation. Order by participant id. An existing empty session returns []; a missing session returns 404. One read-only transaction checks existence then fetches registrations with participants through an EntityGraph, avoiding per-participant queries.",
         "responses": {
           "200": {
             "description": "Successful query.",
@@ -764,10 +764,10 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "INVALID_REQUEST": {
+                  "invalidUuid": {
                     "value": {
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains malformed or invalid fields."
+                      "message": "Bad Request"
                     }
                   }
                 }
@@ -840,7 +840,7 @@
         "tags": [
           "Registrations"
         ],
-        "description": "Check session existence, then registration membership. Missing registration or one belonging to another session returns 404. Delete the relationship, freeing capacity; registering again creates a new ID. Repeated cancellation returns 404.",
+        "description": "Check session existence, then execute a single delete scoped by sessionId and registrationId in one transaction. Missing registration or one belonging to another session returns 404. Delete only the relationship, freeing capacity; registering again creates a new ID. Repeated cancellation returns 404. Preserve participants and other registrations.",
         "responses": {
           "204": {
             "description": "Deleted; no response body."
@@ -853,10 +853,10 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "INVALID_REQUEST": {
+                  "invalidUuid": {
                     "value": {
                       "code": "INVALID_REQUEST",
-                      "message": "Request contains malformed or invalid fields."
+                      "message": "Bad Request"
                     }
                   }
                 }
@@ -1320,6 +1320,7 @@
     "ci": "PRs targeting main and pushes to main run Maven verify with Java 21 and PostgreSQL Testcontainers on Ubuntu 24.04. Cache only dependencies; never skip tests. Upload Surefire/Failsafe reports on failure. Require the Maven verify status check in main protection to enforce the merge gate; workflow alone does not enforce it.",
     "schedulingConcurrency": "Within one transaction, lock the coach row with PESSIMISTIC_WRITE before checking existing.start < proposed.end AND existing.end > proposed.start and inserting the session. The lock also covers empty schedules and is held through commit. Every session creation uses this path; direct database writes bypass this application guarantee. Different coaches lock different rows.",
     "sessionFiltering": "Optional coachId/from/to combine with AND. Match endTime > from and startTime < to for supplied bounds, after truncating bounds to microseconds. Either bound may be omitted; from >= to returns 400. Unknown coaches match no sessions. Empty query parameter values follow standard Spring conversion and are treated as omitted. Sort by startTime then UUID; unpaginated array. One read-only database query fetches sessions and coaches; no resource-existence lookup is needed.",
-    "registrationCreation": "One transaction checks session, participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The existing V2 unique constraint prevents duplicate pairs, while baseline count/check/insert does not prevent concurrent capacity overflow. Concurrent capacity protection remains optional JBC-017; no new locks or migration in JBC-009."
+    "registrationCreation": "One transaction checks session, participant, duplicate and capacity in that order, then saveAndFlush returns the generated registration ID. Duplicate takes precedence even when full. Translate only the named uq_registrations_session_participant constraint violation to DUPLICATE_REGISTRATION and roll back; unrelated failures use the sanitized generic 500 handler. The existing V2 unique constraint prevents duplicate pairs, while baseline count/check/insert does not prevent concurrent capacity overflow. Concurrent capacity protection remains optional JBC-017; no new locks or migration in JBC-009.",
+    "registrationLifecycle": "Participant listing returns id/name/email/registrationId ordered by participant UUID, with [] for existing empty sessions and 404 for missing sessions. Fetch participants with registrations. Cancellation checks session first and atomically deletes only the matching session/registration pair; zero affected rows mean REGISTRATION_NOT_FOUND. Repeated cancellation is 404; capacity is freed and reinscription generates a new ID. Session deletion checks existence then registrations, rejects nonempty sessions with SESSION_HAS_REGISTRATIONS, and deletes by ID with row-count checking. Only fk_registrations_session violations are mapped to that conflict. Preserve coaches, participants and all unrelated registrations. No cascading deletion, migration or concurrency capacity change."
   }
 }
