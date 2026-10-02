@@ -26,7 +26,9 @@ public class CoachController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "createCoach", summary = "Create a coach")
+    @Operation(operationId = "createCoach", summary = "Create a coach",
+            description = "Normalize surrounding and repeated ASCII whitespace in the name. "
+                    + "Internally split the first word from the remainder while keeping the public name field.")
     @ApiResponse(responseCode = "201", description = "Resource created")
     @ApiResponse(responseCode = "500", description = "Unexpected failure",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

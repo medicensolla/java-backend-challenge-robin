@@ -3,7 +3,7 @@
   "info": {
     "title": "Java Backend Challenge API",
     "version": "0.1.0",
-    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. JBC-009 implements registration creation with duplicate and capacity checks. JBC-010 implements participant listing, registration cancellation and protected session deletion. All required API routes are implemented. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
+    "description": "Sports training scheduling and registration API. JBC-006 implements coach and participant creation; JBC-007 implements session creation with conflict-safe coach scheduling; JBC-008 implements session listing by coach and interval. JBC-009 implements registration creation with duplicate and capacity checks. JBC-010 implements participant listing, registration cancellation and protected session deletion. All required API routes are implemented. JBC-012 expands coach names internally with backward-compatible database synchronization; the public name field is preserved and ASCII whitespace is normalized. Creation responses include UUID IDs. Baseline errors use application/json with stable codes and optional fieldErrors. Essential decisions remain versioned here because Markdown documentation is ignored at the owner's request."
   },
   "servers": [
     {
@@ -33,7 +33,7 @@
         "tags": [
           "Coaches"
         ],
-        "description": "Name and email must be nonblank; email must be valid. Emails are not unique identities. Public name remains compatible after schema evolution.",
+        "description": "Name and email must be nonblank; email must be valid. Emails are not unique identities. Normalize surrounding and repeated ASCII whitespace (space, tab, line breaks, vertical tab and form feed) in coach names. Internally store the first word as first_name and the remainder as last_name; a single word has an empty last_name. Return the same id/name/email DTO with the normalized public name. Participant names remain unchanged.",
         "responses": {
           "201": {
             "description": "Resource created; body includes its ID.",
@@ -922,7 +922,7 @@
             "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "description": "Must contain a non-whitespace character."
+            "description": "Required nonblank name. ASCII whitespace is normalized; for example, \"  Alex   Rivera  \" returns \"Alex Rivera\"."
           },
           "email": {
             "type": "string",
@@ -948,7 +948,7 @@
             "type": "string",
             "minLength": 1,
             "pattern": "\\S",
-            "description": "Must contain a non-whitespace character."
+            "description": "Coach name with surrounding and repeated ASCII whitespace normalized to single spaces. Public field remains unchanged during internal name expansion."
           },
           "email": {
             "type": "string",
@@ -1302,8 +1302,8 @@
     "identity": "UUID IDs, including registration IDs. Emails are not unique.",
     "validation": "Nonblank names, location and valid nonblank emails, capacity > 0, startTime < endTime; past sessions allowed. Invalid UUIDs and offset-free timestamps return 400.",
     "publicCoachName": "Keep the name API field through internal first_name/last_name expansion.",
-    "nameSplit": "Trim/collapse whitespace, first token -> first_name, remainder -> last_name; a single token has empty last_name. Culturally imperfect, documented policy.",
-    "migrationCompatibility": "Retain legacy name, backfill split columns and synchronize legacy/new writes at database level. Define deterministic inconsistent-write policy in JBC-012. Defer destructive contraction until old instances and rollback dependency retire.",
+    "nameSplit": "For coaches, normalize ASCII whitespace identically in Java and SQL (space, tab, LF, VT, FF, CR), trim surrounding spaces, first word -> first_name, remainder -> last_name; a single word has empty last_name. Keep the public name API field, recomposed from split fields. Names are normalized at creation, legacy writes and backfill. This is a pragmatic, culturally imperfect policy; participants are unchanged.",
+    "migrationCompatibility": "V3 retains legacy name, backfills canonical names and first_name/last_name without changing IDs, emails or relations, then requires non-null split fields. A BEFORE INSERT OR UPDATE trigger handles legacy-only and split-only writes. Detect actual UPDATE changes with IS DISTINCT FROM; if both representations are supplied/changed, require equality after normalization or reject with SQLSTATE 23514. Split writers provide both fields, including empty last_name for single names; nulls remain invalid. Canonicalize the composed full name and split by first word. Email-only updates leave names untouched. Old readers continue using name; new JPA maps only split fields. Keep V3 when rolling back the application. Defer dropping name/compatibility triggers until old versions and rollback dependencies retire. V1/V2 remain immutable.",
     "errors": "Stable code and readable message; optional fieldErrors; never disclose stack traces. Generic 500 for unexpected errors.",
     "documentation": "All Markdown including working notes lives in ignored docs/. Reviewer-required README and migration ADR availability must be resolved before submission; do not silently override the owner preference.",
     "git": "Branch exactly ticket ID; Conventional Commits include ticket ID. Commit locally only; owner performs push. No PR creation or remote operations in JBC-001.",

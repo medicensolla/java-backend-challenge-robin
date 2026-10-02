@@ -22,14 +22,24 @@ public class Coach {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
     @Column(nullable = false)
     private String email;
 
     public Coach(String name, String email) {
-        this.name = name;
+        var normalized = name.replaceAll("\\s+", " ").replaceAll("^ | $", "");
+        var separator = normalized.indexOf(' ');
+        this.firstName = separator < 0 ? normalized : normalized.substring(0, separator);
+        this.lastName = separator < 0 ? "" : normalized.substring(separator + 1);
         this.email = email;
+    }
+
+    public String getName() {
+        return lastName.isEmpty() ? firstName : firstName + " " + lastName;
     }
 }
