@@ -4,7 +4,7 @@ WORKDIR /workspace
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
 COPY src/ src/
-RUN --mount=type=cache,target=/root/.m2 ./mvnw --batch-mode --no-transfer-progress -DskipTests package
+RUN ./mvnw --batch-mode --no-transfer-progress -DskipTests package
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
