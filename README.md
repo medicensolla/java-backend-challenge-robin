@@ -1,298 +1,105 @@
 # Java Backend Challenge
 
-A Java 21 / Spring Boot API for scheduling training sessions and managing registrations, backed by PostgreSQL. All eight business endpoints below are implemented. This guide covers startup, testing and a complete HTTP walkthrough.
+A REST API for scheduling sports training sessions, assigning coaches and managing participant registrations. Built with Java 21, Spring Boot 3, PostgreSQL, Flyway and Lombok.
 
-## Run with Docker Compose
+Try the deployed API through [Swagger UI](https://java-backend-challenge-robin-production.up.railway.app/swagger-ui/index.html#/Participants/createParticipant).
 
-Requirements: Docker Engine or Docker Desktop running, Docker Compose v2, an available host port (8080 by default), and `curl` for the walkthrough. The first build needs access to container registries and Maven dependencies. Run commands from the repository root. Java and Maven do not need to be installed on the host for this option.
+## Run locally
+
+With Docker Desktop or Docker Engine running and Docker Compose v2 installed, run this from the repository root:
 
 ```sh
 docker compose up --build
 ```
 
-Wait until both services are healthy, then use a second terminal:
+This starts the application and PostgreSQL, applies the migrations and checks the schema. No local Java or Maven installation is needed. The first build downloads images and dependencies.
+
+Once both services are healthy:
+
+- Open [local Swagger](http://localhost:8080/swagger-ui/index.html) to try the endpoints.
+- Check `http://localhost:8080/actuator/health`; it should return `{"status":"UP"}`.
+- The API contract is available at `/v3/api-docs` and in [api/openapi.json](api/openapi.json).
+
+If port 8080 is occupied, use `PORT=18080 docker compose up --build` and change the port in the URLs.
+
+PostgreSQL data stays in the `postgres_data` volume after `docker compose down`. To reset the local database, use `docker compose down --volumes`; this deletes its data. PostgreSQL is only exposed inside the Compose network.
+
+### Run without Docker Compose
+
+You need a Java 21 JDK and a reachable PostgreSQL database. Export these variables using your own connection details:
 
 ```sh
-curl -i http://localhost:8080/actuator/health
-```
-
-Expected: `200` with `{"status":"UP"}`. The application waits for PostgreSQL, applies Flyway migrations and validates the schema through Hibernate. Connection details are not exposed by health responses.
-
-- [Swagger UI](http://localhost:8080/swagger-ui/index.html): interactive requests and DTO examples.
-- [Generated OpenAPI](http://localhost:8080/v3/api-docs): documentation generated from the running application.
-- [Versioned OpenAPI contract](api/openapi.json): examples, error codes and project decisions.
-- [Final verification report](docs/FINAL-VERIFICATION.md): clean-clone tests, Compose startup, persistence and immutable migrations.
-- [Coach-name migration ADR](docs/ADR-001-coach-name-expansion.md): version compatibility, migration safety and rollback.
-
-Compose binds the application to `127.0.0.1`. PostgreSQL is reachable inside the Compose network and **does not expose a host database port**. If 8080 is occupied, use `PORT=18080 docker compose up --build` and substitute that port in the URLs.
-
-Database data lives in the project's named `postgres_data` volume. `docker compose down` stops/removes containers and retains that data. **`docker compose down --volumes` deletes this project's database data**; use it only when intentionally resetting your local environment. Changing database credentials in environment variables does not update users in an already initialized volume.
-
-## Configuration and local Java startup
-
-The stack uses Java 21, Spring Boot 3.5.16, PostgreSQL 17.9, Maven Wrapper 3.9.16, Spring Data JPA, Flyway, Lombok and springdoc. There is no host Maven installation requirement; use `./mvnw`.
-
-| Variable | Docker Compose | Direct Java process |
-| --- | --- | --- |
-| `DB_NAME` | Database name; defaults to `jbc` | Not used by the application; include the database name in `DB_URL` |
-| `DB_URL` | Set internally to `jdbc:postgresql://db:5432/${DB_NAME}` | JDBC URL; defaults to `jdbc:postgresql://localhost:5432/jbc` |
-| `DB_USERNAME` | Defaults to `jbc_local` | Required |
-| `DB_PASSWORD` | Defaults to `local_development_only` | Required |
-| `PORT` | Published host port; defaults to 8080; container remains on 8080 | Application listening port; defaults to 8080 |
-
-Defaults and [.env.example](.env.example) are for local development. Compose automatically reads a root `.env` file. Spring Boot does not automatically load that file; export its variables when running Java directly. Do not commit real credentials.
-
-For local startup, select a **Java 21 JDK** (`java -version`), and create a PostgreSQL database/user reachable from the host. The user must be able to apply schema migrations. A separate local PostgreSQL installation or a separately published container works; the supplied Compose database alone is not reachable at `localhost:5432`.
-
-```sh
-cp .env.example .env
-# Edit .env to match your reachable PostgreSQL database and credentials.
-set -a
-. ./.env
-set +a
+export DB_URL='jdbc:postgresql://localhost:5432/jbc'
+export DB_USERNAME='your_database_user'
+export DB_PASSWORD='your_database_password'
 ./mvnw spring-boot:run
 ```
 
-Alternatively, with the same environment exported:
+The database user needs permission to apply migrations. `PORT` defaults to `8080`. The Maven Wrapper is included, so Maven does not need to be installed separately.
 
-```sh
-./mvnw --batch-mode --no-transfer-progress package -DskipTests
-java -jar target/java-backend-challenge-0.0.1-SNAPSHOT.jar
-```
+[.env.example](.env.example) contains the local configuration. Compose reads `.env` automatically; a direct Java process needs the variables exported. `DB_NAME` selects the Compose database name. Keep real credentials out of Git.
 
-## Tests and CI
+## Run the tests
 
-Select Java 21 for host Maven commands. Unit/JSON tests do not require Docker:
+With Java 21 selected, run the unit tests:
 
 ```sh
 ./mvnw test
 ```
 
-Run the complete suite, including real PostgreSQL HTTP integration tests:
+For the full suite, including HTTP integration tests with PostgreSQL:
 
 ```sh
 ./mvnw --batch-mode --no-transfer-progress verify
 ```
 
-Docker must be running and accessible to Testcontainers, which creates its own PostgreSQL containers. A separately started application/database and normal `DB_*` variables are not needed for these tests. The first run may download dependencies and PostgreSQL images.
+Docker must be running for Testcontainers. The tests create their own databases; you do not need to start the application or configure database credentials. They cover scheduling boundaries, duplicate and capacity rules, concurrent requests, cancellation, deletion and complete API journeys.
 
-Surefire publishes unit results under `target/surefire-reports/`; Failsafe publishes integration results under `target/failsafe-reports/`. Failsafe runs both `integration-test` and `verify`, so failing integration tests fail the build. Coverage includes validation, scheduling boundaries and coach overlap concurrency, registration capacity/duplicates and concurrent last-slot protection, cancellation/deletion, coach-name compatibility and complete HTTP journeys. There are no dedicated Flyway tests; migrations run during ordinary integration startup, and the existing-database upgrade was also checked manually in isolation.
+Reports are written to `target/surefire-reports/` and `target/failsafe-reports/`. Integration failures fail the build. [GitHub Actions](.github/workflows/ci.yaml) runs the same full suite on pull requests to `main` and pushes to `main`.
 
-[GitHub Actions](.github/workflows/ci.yaml) runs the same `verify` command with Java 21 and Docker for PRs targeting `main` and pushes to `main`. The job is named `Maven verify`; reports are uploaded on failure. Enforcing a passing check before merge requires an active GitHub branch protection rule or ruleset in addition to this workflow.
+## Try the API
 
-## Endpoints
+Swagger includes request examples. Start by creating a coach and a participant, then reuse their returned IDs to create a session and register the participant. List the registrations, cancel one, and delete the session once it is empty.
 
-All request/response bodies are JSON. Creation endpoints return the resource's generated UUID. Successful DELETE responses have **no body**. No authentication is configured.
-
-| Method | Route | Success | Main errors |
+| Method | Endpoint | Purpose | Success |
 | --- | --- | --- | --- |
-| POST | `/api/coaches` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_COACH` |
-| POST | `/api/participants` | `201` `{id,name,email}` | `400 INVALID_REQUEST`, `409 DUPLICATE_PARTICIPANT` |
-| POST | `/api/sessions` | `201` `{id,coachId,startTime,endTime,capacity,location}` | `400 INVALID_REQUEST`, `404 COACH_NOT_FOUND`, `409 COACH_OVERLAP` |
-| GET | `/api/sessions?coachId=…&from=…&to=…` | `200` session page | `400 INVALID_REQUEST` |
-| POST | `/api/sessions/{sessionId}/registrations` | `201` `{id,sessionId,participantId}` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / PARTICIPANT_NOT_FOUND`, `409 DUPLICATE_REGISTRATION / SESSION_FULL` |
-| GET | `/api/sessions/{sessionId}/participants` | `200` participant page | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND` |
-| DELETE | `/api/sessions/{sessionId}/registrations/{registrationId}` | `204` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND / REGISTRATION_NOT_FOUND` |
-| DELETE | `/api/sessions/{sessionId}` | `204` | `400 INVALID_REQUEST`, `404 SESSION_NOT_FOUND`, `409 SESSION_HAS_REGISTRATIONS` |
+| POST | `/api/coaches` | Create a coach | `201` |
+| POST | `/api/participants` | Create a participant | `201` |
+| POST | `/api/sessions` | Create a session | `201` |
+| GET | `/api/sessions` | List sessions; optional `coachId`, `from` and `to` filters | `200` |
+| POST | `/api/sessions/{sessionId}/registrations` | Register a participant | `201` |
+| GET | `/api/sessions/{sessionId}/participants` | List registered participants | `200` |
+| DELETE | `/api/sessions/{sessionId}/registrations/{registrationId}` | Cancel a registration | `204` |
+| DELETE | `/api/sessions/{sessionId}` | Delete an empty session | `204` |
 
-Unexpected failures return `500 INTERNAL_ERROR` with a sanitized message. There are no separate GET-by-ID endpoints for coaches, participants or sessions; use creation responses, filtered session listing and registered participant listing.
+Every creation returns an `id`. A registration has its own ID, separate from the participant's; use it for cancellation. Successful deletes have no response body. Coaches and participants remain stored after a session is deleted, so repeating the same creation examples can return a duplicate conflict.
 
-Both GET lists accept `page` (zero-based, default `0`) and `size` (default `20`, maximum `100`). Omitted or empty values use defaults. Responses are `{content, page, size, totalElements, totalPages}`; `content` contains the same session or participant fields described above. Filters apply before pagination and totals. Sessions remain ordered by start time then UUID; participants by UUID. Invalid integers, negative pages and sizes outside `1–100` return `400 INVALID_REQUEST`, before checking session existence.
+Both lists accept `page` (default `0`) and `size` (default `20`, maximum `100`). Responses contain `content`, `page`, `size`, `totalElements` and `totalPages`. Sessions sort by start time and ID; participants by ID.
 
-An empty result has `content: []`, `totalElements: 0`, and `totalPages: 0`. A page beyond the last retains the matching totals but has empty content. A missing session still returns `404` when listing participants. This replaces the previous array response, including requests without pagination parameters. Offset pagination does not provide a fixed snapshot across requests if records change between pages.
+Errors use RFC 9457 (`application/problem+json`), with a readable `detail` and a stable `code`. Invalid input returns `400`, missing resources `404`, and business conflicts `409`. Internal failures return a generic `500` without exposing exception details.
 
-## Complete curl walkthrough
+## Assumptions and decisions
 
-Run these commands in the same shell. `-i` displays the HTTP status and headers. After each creation, **copy the `id` from its JSON response into the indicated variable**, replacing the placeholder. The IDs are generated on every run; example UUIDs in Swagger are illustrative.
+- **Adjacent sessions are allowed.** Intervals are `[startTime, endTime)`, so one session can start exactly when another ends. Overlapping sessions for the same coach return `409 COACH_OVERLAP`.
+- **Times require an explicit offset.** Inputs accept ISO-8601 with `Z` or an offset, and responses use UTC. Precision is truncated to PostgreSQL microseconds before validation. Past sessions are allowed.
+- **Date filters select intersecting sessions.** Filters combine with AND; either date bound can be omitted. When both are present, `from` must be before `to`. Encode a `+` offset as `%2B` in query parameters.
+- **Session deletion is blocked while registrations exist.** Cancel them first. Cancellation frees capacity; re-registering creates a new registration ID. Repeated cancellation returns `404`.
+- **Capacity is enforced, with duplicates checked first.** A full session returns `409 SESSION_FULL`; an already registered participant receives `409 DUPLICATE_REGISTRATION`, even when it is full. Transactions lock the coach or session row to protect scheduling and registration checks against concurrent API requests.
+- **People are checked by name and email together, separately per role.** Case and extra name whitespace are ignored; accents are preserved. The same combination can exist as both a coach and a participant. This extra rule is checked in Java, so simultaneous creations can still produce duplicates.
+- **Coach names are split at the first word.** The remaining words become the last name; a single-word name has an empty last name. Public names have normalized whitespace. This is a practical convention, not a universal way to interpret personal names.
 
-```sh
-BASE_URL='http://localhost:8080'
-```
+## Migration safety
 
-Create a coach (`201`). The public name becomes `Alex Rivera`:
+Flyway owns schema changes; Hibernate validates the schema. V1 and V2 remain unchanged. V3 adds the separate coach-name fields while keeping the original `name` column. A trigger synchronizes both representations so previous and current application versions can coexist.
 
-```sh
-curl -i -X POST "$BASE_URL/api/coaches" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"  Alex   Rivera  ","email":"alex@example.com"}'
-```
+The [migration ADR](docs/ADR-001-coach-name-expansion.md) explains checksums, compatibility, backfill locks and application rollback. The legacy column stays until old writers are retired and the rollback window is closed.
 
-```sh
-COACH_ID='<copy coach id>'
-```
+## What I would improve with more time
 
-Create two participants (each `201`):
+- Add authentication, authorization and better operational monitoring before using this with real users.
+- Measure query performance and lock contention as load grows. Requests for the same coach or session are serialized, so hot resources deserve attention before adding more application instances. I would also consider cursor pagination for large, changing lists.
+- Make the name/email duplicate rule safe under concurrent creation if it becomes a firm requirement. For a large coach table, stage the name migration and backfill in batches.
 
-```sh
-curl -i -X POST "$BASE_URL/api/participants" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Sam Lee","email":"sam@example.com"}'
-```
+## AI assistance
 
-```sh
-PARTICIPANT_A_ID='<copy first participant id>'
-```
-
-```sh
-curl -i -X POST "$BASE_URL/api/participants" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Taylor Kim","email":"taylor@example.com"}'
-```
-
-```sh
-PARTICIPANT_B_ID='<copy second participant id>'
-```
-
-Create a one-place session (`201`). The response has `startTime: "2026-10-05T14:00:00Z"` and `endTime: "2026-10-05T15:00:00Z"`. Past dates are allowed, so this walkthrough remains usable later:
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions" \
-  -H 'Content-Type: application/json' \
-  -d "{\"coachId\":\"$COACH_ID\",\"startTime\":\"2026-10-05T10:00:00-04:00\",\"endTime\":\"2026-10-05T11:00:00-04:00\",\"capacity\":1,\"location\":\"Court A\"}"
-```
-
-```sh
-SESSION_ID='<copy session id>'
-```
-
-List with all three filters (`200`, including the created session). `--get --data-urlencode` encodes `+02:00` correctly; a literal `+` in a query string can otherwise become a space. This interval represents the same UTC instants:
-
-```sh
-curl -i --get "$BASE_URL/api/sessions" \
-  --data-urlencode "coachId=$COACH_ID" \
-  --data-urlencode 'from=2026-10-05T16:00:00+02:00' \
-  --data-urlencode 'to=2026-10-05T17:00:00+02:00' \
-  --data-urlencode 'page=0' \
-  --data-urlencode 'size=20'
-```
-
-Register Sam (`201`), occupying the last available place. Save the **registration's own `id`**, which differs from the participant ID:
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
-  -H 'Content-Type: application/json' \
-  -d "{\"participantId\":\"$PARTICIPANT_A_ID\"}"
-```
-
-```sh
-REGISTRATION_ID='<copy registration id>'
-```
-
-List participants (`200`). Sam's `id` is the participant ID; `registrationId` equals the registration just created:
-
-```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
-```
-
-Register Sam again: `409 DUPLICATE_REGISTRATION`, even though the session is now full:
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
-  -H 'Content-Type: application/json' \
-  -d "{\"participantId\":\"$PARTICIPANT_A_ID\"}"
-```
-
-Register Taylor: `409 SESSION_FULL`:
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
-  -H 'Content-Type: application/json' \
-  -d "{\"participantId\":\"$PARTICIPANT_B_ID\"}"
-```
-
-Try deleting the occupied session: `409 SESSION_HAS_REGISTRATIONS`:
-
-```sh
-curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID"
-```
-
-Cancel Sam (`204`, empty body), releasing the place. Repeating this cancellation returns `404 REGISTRATION_NOT_FOUND`:
-
-```sh
-curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID/registrations/$REGISTRATION_ID"
-```
-
-Register Sam again (`201`). Save the **new** registration ID; the cancelled ID is not reused:
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
-  -H 'Content-Type: application/json' \
-  -d "{\"participantId\":\"$PARTICIPANT_A_ID\"}"
-```
-
-```sh
-REPLACEMENT_ID='<copy new registration id>'
-```
-
-Cancel the replacement (`204`), then register Taylor (`201`) to demonstrate capacity reuse by a different participant:
-
-```sh
-curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID/registrations/$REPLACEMENT_ID"
-```
-
-```sh
-curl -i -X POST "$BASE_URL/api/sessions/$SESSION_ID/registrations" \
-  -H 'Content-Type: application/json' \
-  -d "{\"participantId\":\"$PARTICIPANT_B_ID\"}"
-```
-
-```sh
-FINAL_REGISTRATION_ID='<copy Taylor registration id>'
-```
-
-Cancel Taylor (`204`), confirm an empty participant list (`200`, empty `content`), then delete the empty session (`204`). Coaches and participants remain stored:
-
-```sh
-curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID/registrations/$FINAL_REGISTRATION_ID"
-```
-
-```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
-```
-
-```sh
-curl -i -X DELETE "$BASE_URL/api/sessions/$SESSION_ID"
-```
-
-Listing participants for the deleted session now returns `404 SESSION_NOT_FOUND`:
-
-```sh
-curl -i "$BASE_URL/api/sessions/$SESSION_ID/participants?page=0&size=20"
-```
-
-## Rules and error format
-
-- Session intervals are half-open `[startTime, endTime)`: adjacent sessions are allowed; overlapping sessions for the same coach are rejected. Different coaches can teach simultaneously. Application scheduling locks the coach row through commit, including when its schedule is empty.
-- Inputs require ISO-8601 timestamps with `Z` or an explicit offset such as `-04:00`. Values are truncated, not rounded, to PostgreSQL microseconds before validation and comparisons. Responses use UTC `Z`; the original timezone is not retained. `startTime` must remain strictly before `endTime` after truncation. Numeric timestamps and offset-free timestamps are invalid.
-- Session filters combine with AND and select interval intersections: `endTime > from` and `startTime < to`. Either bound may be omitted; when both are provided, `from < to` is required after truncation. An unknown coach returns empty content and zero totals. Sessions sort by start time then UUID; registered participants sort by participant UUID. Existing empty sessions return empty participant content and zero totals; missing sessions return `404`.
-- Names, emails and location must be nonblank; emails must be valid; capacity must be a positive integer. Names and emails individually are not unique. Creating an existing name/email combination returns `409 DUPLICATE_COACH` or `409 DUPLICATE_PARTICIPANT`, checked separately within each role. Comparison ignores case, collapses the six ASCII whitespace characters in names and trims surrounding ASCII whitespace from emails; accents remain significant. The same combination may exist as both a coach and a participant. Coach names collapse spaces, tabs, LF, VT, FF and CR and trim surrounding ASCII whitespace. A single-word name is supported. Participant names and emails are stored as supplied. Splitting a coach's first word from the remainder is a practical convention, not a universal interpretation of personal names.
-- Input validation precedes resource checks. Registration locks the session row, then checks participant, duplicate and capacity, in that order. A duplicate takes precedence over a full session. The database UNIQUE constraint also prevents duplicate pairs under concurrent writes.
-- Cancellation removes only the addressed session/registration relationship. A registration belonging to another session, missing registration or repeated cancellation returns `404 REGISTRATION_NOT_FOUND`; session existence is checked first. Deletion rejects a session with registrations; its foreign key also protects against orphan registrations. These operations do not delete people.
-
-Spring MVC errors follow RFC 9457 with `Content-Type: application/problem+json`. They contain `type` (`about:blank`), the standard HTTP `title`, matching `status`, safe `detail`, request-path `instance` without query parameters, and the existing `code`. Clients must read `detail` instead of the removed top-level `message`. Successful responses keep their existing format. Body validation also includes sorted, deduplicated, nonempty `fieldErrors`, for example:
-
-```json
-{"type":"about:blank","title":"Bad Request","status":400,"detail":"Request contains invalid fields.","instance":"/api/coaches","code":"INVALID_REQUEST","fieldErrors":[{"field":"email","message":"must be a valid email"}]}
-```
-
-Malformed JSON (including invalid UUIDs or timestamps in JSON bodies) uses `400 INVALID_REQUEST` and `Request body must contain valid JSON.` Malformed path/query UUIDs or query timestamps use `400 INVALID_REQUEST` and `Bad Request`. Invalid time windows have specific messages shown in OpenAPI. Domain errors omit `fieldErrors`; for example:
-
-```json
-{"type":"about:blank","title":"Conflict","status":409,"detail":"Session has reached its capacity.","instance":"/api/sessions/11111111-1111-4111-8111-111111111111/registrations","code":"SESSION_FULL"}
-```
-
-Unexpected failures return a `500` problem with `code: INTERNAL_ERROR` and `detail: An unexpected error occurred.` Internal exception details are logged only on the server. Framework errors preserve their HTTP status and headers, including `Allow` for 405 responses. Errors outside Spring MVC are not customized.
-
-## Limits and possible improvements
-
-People creation checks the name/email combination in the Java service before saving. This is an additional project decision; the challenge does not require this uniqueness rule. Existing duplicate rows remain intact. There is no database UNIQUE constraint or new lock for this combination, so simultaneous requests can both pass the check and create duplicates. Direct database writes also bypass this check. The existing validation rules still apply before lookup; an invalid email is rejected rather than normalized into a valid one.
-
-Registration creation holds a pessimistic write lock on the session row until its transaction commits or rolls back. Under PostgreSQL READ COMMITTED, the next registration checks capacity after the previous transaction completes. Two distinct participants competing for the last slot receive one `201` and one `409 SESSION_FULL`; concurrent requests for the same participant receive one `201` and one `409 DUPLICATE_REGISTRATION`. Sessions lock independently, including across application instances sharing the database. The existing UNIQUE constraint remains a second defense against duplicate pairs.
-
-Capacity protection applies to this application registration flow, not direct SQL writes. Cancellation remains independent: a concurrent cancellation may free a slot after a `SESSION_FULL` response. No capacity-update endpoint is provided.
-
-Lists are paginated and Spring MVC errors use RFC 9457. Production authentication/authorization, deployment security and observability are possible follow-up work; they are not part of this challenge's implemented scope. Coach/participant update/delete, recurring sessions, payments and notifications are not provided. Coach-name contraction and large-table migration rollout require the safeguards described in the ADR. Local clean-clone and restart verification passed; see the [final verification report](docs/FINAL-VERIFICATION.md) for evidence and delivery limits.
-
-## AI assistance and ownership
-
-Codex assisted with requirement analysis, ticket planning, Java/SQL implementation, tests and local verification commands.
+I defined the scope, wrote the tickets and planned the work in Markdown. I used Codex to carry out that plan, including implementation, tests and documentation. I reviewed the pull requests, checked the results and made the final decisions on the design and trade-offs.
